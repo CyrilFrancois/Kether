@@ -1,7 +1,4 @@
-version: '3.8'
-
 services:
-  # 1. The Database: PostgreSQL 16
   db:
     image: postgres:16
     container_name: kether_db
@@ -13,16 +10,21 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      # This is the "Tunnel" that saves your data on your hard drive
       - ./kether_db_data:/var/lib/postgresql/data
+    # ADD THIS SECTION:
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kether"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # 2. The Backend: FastAPI (Python)
   backend:
     build: ./backend
     container_name: kether_backend
     restart: always
     depends_on:
-      - db
+      db:
+        condition: service_healthy # Changes from just '- db'
     env_file:
       - .env
     environment:
@@ -35,7 +37,6 @@ services:
       - ./agents:/app/agents
       - ./foundry:/app/foundry
 
-  # 3. The Frontend: React/Next.js
   frontend:
     build: ./frontend
     container_name: kether_frontend
@@ -46,4 +47,8 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
     volumes:
       - ./frontend:/app
-      - /app/node_modules # Prevents local node_modules from overwriting container
+      # This line is a 'trick': it tells Docker NOT to overwrite the 
+      # container's node_modules with your local (empty) folder.
+      - /app/node_modules 
+    depends_on:
+      - backend

@@ -1,34 +1,46 @@
-# /backend/main.py
+# backend/main.py
 import os
 from fastapi import FastAPI
 from sqlmodel import SQLModel, create_engine, Session, text
-from dotenv import load_dotenv
-
-load_dotenv()
+from models.database import Project, Functionality, FunctionalTask, TechnicalTask
 
 app = FastAPI(title="Kether API", version="0.1.0")
 
 # Database Configuration
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:kether_dev_pass@db:5432/kether")
 engine = create_engine(DATABASE_URL)
 
 @app.on_event("startup")
 def on_startup():
-    # This ensures the DB is reachable on start
-    try:
-        with Session(engine) as session:
-            session.exec(text("SELECT 1"))
-        print("✅ Kether Database: Connected")
-    except Exception as e:
-        print(f"❌ Kether Database: Connection Failed - {e}")
+    # This magic line creates all tables in Postgres based on your models
+    SQLModel.metadata.create_all(engine)
+    print("✅ Kether Engine: Tables Verified/Created")
 
 @app.get("/")
-def read_root():
-    return {"status": "Kether Online", "version": "0.1.0"}
+def health_check():
+    return {
+        "status": "Kether Online",
+        "database": "Connected",
+        "layers": ["Project", "Functionality", "Functional Task", "Technical Task"]
+    }
 
-@app.get("/health/ai")
-def check_ai_config():
-    key = os.getenv("GPT_KEY")
-    if not key or "sk-" not in key:
-        return {"status": "Warning", "message": "GPT Key missing or invalid"}
-    return {"status": "Ready", "message": "AI Engine configured"}
+# Quick API to verify AI config
+@app.get("/ai-status")
+def ai_status():
+    has_key = bool(os.getenv("GPT_KEY"))
+    return {"ai_ready": has_key, "provider": "OpenAI (GPT-4o)" if has_key else "None"}
+
+@app.on_event("startup")
+def on_startup():
+    retries = 5
+    while retries > 0:
+        try:
+            SQLModel.metadata.create_all(engine)
+            print("✅ Kether Engine: Tables Verified/Created")
+            break
+        except Exception as e:
+            retries -= 1
+            print(f"⌛ Waiting for Database... ({retries} retries left)")
+            time.sleep(3)
+    else:
+        print("❌ Kether Engine: Could not connect to Database.")

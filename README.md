@@ -100,15 +100,32 @@ Kether/
 ├── README.md             # The file we just created
 ├── kether_db_data/       # [LOCAL ONLY] Persistent Postgres data (auto-created)
 │
-├── frontend/             # React (Vercel/Next.js style)
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── public/           # Icons, Logos
-│   └── src/
-│       ├── components/   # Reusable UI (Cards, Tabs, Buttons)
-│       ├── pages/        # Dashboard, Workspace, Foundry
-│       ├── hooks/        # API calling logic
-│       └── store/        # State management (Zustand or Redux)
+├── frontend
+    ├── src/
+        ├── main.jsx              # The Bootloader (Already created)
+        ├── App.jsx               # The Router (New: Switches between Login and Dashboard)
+        │
+        ├── components/           # Reusable UI
+        │   ├── ui/
+        │   │   ├── Input.jsx     # Stylish dark-mode text inputs
+        │   │   ├── Button.jsx    # Primary actions with "loading" states
+        │   │   └── StatusDot.jsx # Small pulsing LEDs (Green/Red/Yellow)
+        │   └── auth/
+        │       ├── LoginForm.jsx # The "Identity" component
+        │       └── SystemPulse.jsx # The "Environment Check" component
+        │
+        ├── pages/
+        │   ├── Connection.jsx    # The full Login Page (Combines Identity + Env Check)
+        │   ├── Dashboard.jsx
+        │   ├── Workspace.jsx
+        │   └── Foundry.jsx
+        │
+        ├── hooks/
+        │   ├── useAuth.js        # Logic for logging in/out
+        │   └── useHealthCheck.js # Logic for pinging the Backend/DB/AI status
+        │
+        └── store/
+            └── authStore.js      # Global state (Is user logged in? What is their name?)
 │
 ├── backend/              # FastAPI (Python)
 │   ├── Dockerfile
