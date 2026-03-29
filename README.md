@@ -130,3 +130,22 @@ Kether/
     ├── library/          # Approved Python tools (e.g., git_tool.py)
     ├── pending/          # Tools waiting for user validation
     └── sandbox/          # Temporary folder for AI code execution
+
+---
+
+## The Big Scheme: Kether’s Development Roadmap
+
+### Phase 1: The Infrastructure (Where we are now). 
+Setting up the Dockerized environment, the persistent database, and the "Three Tab" skeleton.
+
+### Phase 2: The Data Backbone. 
+Defining the SQL schemas for the 4-layer hierarchy (Project → Functionality → Task → Technical Task).
+
+### Phase 3: The Intelligence Layer. 
+Connecting the GPT-4o API and building the first "Agent" that can take a Project name and auto-decompose it into Functional Tasks.
+
+### Phase 4: The Foundry. 
+Implementing the Python sandbox where the "Toolsmith" agent can write, test, and save new tools.
+
+### Phase 5: Self-Evolution. 
+Training Kether to use its own Project Management tab to track its own bugs and feature requests.

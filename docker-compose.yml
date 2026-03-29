@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # 1. The Database: PostgreSQL 16
+  db:
+    image: postgres:16
+    container_name: kether_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-kether_dev_pass}
+      POSTGRES_DB: kether
+    ports:
+      - "5432:5432"
+    volumes:
+      # This is the "Tunnel" that saves your data on your hard drive
+      - ./kether_db_data:/var/lib/postgresql/data
+
+  # 2. The Backend: FastAPI (Python)
+  backend:
+    build: ./backend
+    container_name: kether_backend
+    restart: always
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD:-kether_dev_pass}@db:5432/kether
+      - OPENAI_API_KEY=${GPT_KEY}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./agents:/app/agents
+      - ./foundry:/app/foundry
+
+  # 3. The Frontend: React/Next.js
+  frontend:
+    build: ./frontend
+    container_name: kether_frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # Prevents local node_modules from overwriting container
