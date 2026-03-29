@@ -88,3 +88,45 @@ The AI's laboratory.
 ## 🛡 Security & Persistence
 * **Data Persistence:** All database states are stored in the `./kether_db_data` volume. Your project history survives reboots.
 * **The Sandbox:** AI-generated code is executed in restricted environments to prevent accidental modifications to the host system.
+
+---
+
+## File Architecture
+
+Kether/
+├── .env                  # Secrets (GPT_KEY, DB_PASS) - DO NOT COMMIT
+├── .gitignore            # Standard ignores + kether_db_data/
+├── docker-compose.yml    # Orchestrates the whole stack
+├── README.md             # The file we just created
+├── kether_db_data/       # [LOCAL ONLY] Persistent Postgres data (auto-created)
+│
+├── frontend/             # React (Vercel/Next.js style)
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── public/           # Icons, Logos
+│   └── src/
+│       ├── components/   # Reusable UI (Cards, Tabs, Buttons)
+│       ├── pages/        # Dashboard, Workspace, Foundry
+│       ├── hooks/        # API calling logic
+│       └── store/        # State management (Zustand or Redux)
+│
+├── backend/              # FastAPI (Python)
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── main.py           # Entry point
+│   ├── api/              # Route handlers (v1/projects, v1/tasks)
+│   ├── core/             # Auth, Database config, Global constants
+│   ├── models/           # SQLAlchemy/SQLModel (Database schemas)
+│   └── services/         # Business logic (The "Orchestrator")
+│
+├── agents/               # The AI Intelligence Layer
+│   ├── __init__.py
+│   ├── base_agent.py     # Base class for all agents
+│   ├── toolsmith.py      # The agent that creates tools
+│   ├── executor.py       # The agent that solves technical tasks
+│   └── prompts/          # System prompts for different layers
+│
+└── foundry/              # The "Lab" for AI-generated tools
+    ├── library/          # Approved Python tools (e.g., git_tool.py)
+    ├── pending/          # Tools waiting for user validation
+    └── sandbox/          # Temporary folder for AI code execution
