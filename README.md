@@ -100,32 +100,41 @@ Kether/
 ├── README.md             # The file we just created
 ├── kether_db_data/       # [LOCAL ONLY] Persistent Postgres data (auto-created)
 │
-├── frontend
-    ├── src/
-        ├── main.jsx              # The Bootloader (Already created)
-        ├── App.jsx               # The Router (New: Switches between Login and Dashboard)
-        │
-        ├── components/           # Reusable UI
-        │   ├── ui/
-        │   │   ├── Input.jsx     # Stylish dark-mode text inputs
-        │   │   ├── Button.jsx    # Primary actions with "loading" states
-        │   │   └── StatusDot.jsx # Small pulsing LEDs (Green/Red/Yellow)
-        │   └── auth/
-        │       ├── LoginForm.jsx # The "Identity" component
-        │       └── SystemPulse.jsx # The "Environment Check" component
-        │
-        ├── pages/
-        │   ├── Connection.jsx    # The full Login Page (Combines Identity + Env Check)
-        │   ├── Dashboard.jsx
-        │   ├── Workspace.jsx
-        │   └── Foundry.jsx
-        │
-        ├── hooks/
-        │   ├── useAuth.js        # Logic for logging in/out
-        │   └── useHealthCheck.js # Logic for pinging the Backend/DB/AI status
-        │
-        └── store/
-            └── authStore.js      # Global state (Is user logged in? What is their name?)
+├── frontend/
+│   ├── Dockerfile                # Instructions to containerize the React/Vite app
+│   ├── index.html                # The HTML entry point (Mounts the React 'root')
+│   ├── package.json              # Manifest of dependencies (Vite, React, Zustand, etc.)
+│   ├── vite.config.js            # Build configuration and Backend Proxy settings
+│   │
+│   ├── public/                   # Static assets
+│   │   └── logo.svg              # Kether Crown Icon
+│   │
+│   └── src/
+│       ├── main.jsx              # The Bootloader: Mounts the App to the DOM
+│       ├── App.jsx               # The Traffic Controller: Handles Auth & Page Routing
+│       ├── index.css              # Global Dark-Mode Styles & Variables
+│       │
+│       ├── components/           # Reusable UI Logic
+│       │   ├── ui/               # Atomic Design Components
+│       │   │   ├── Input.jsx     # Stylish dark-mode text inputs
+│       │   │   ├── Button.jsx    # Primary actions with "loading" states
+│       │   │   └── StatusDot.jsx # Small pulsing LEDs (Green/Red/Yellow)
+│       │   └── auth/             # Connection-specific UI
+│       │       ├── LoginForm.jsx # The "Identity" component (Credentials)
+│       │       └── SystemPulse.jsx # The "Environment Check" component (Health)
+│       │
+│       ├── pages/                # High-level View Containers
+│       │   ├── Connection.jsx    # The Login Page (Combines Identity + Env Check)
+│       │   ├── Dashboard.jsx     # L1: Project Overview
+│       │   ├── Workspace.jsx     # L2-L4: Orchestration & Kanban
+│       │   └── Foundry.jsx       # AI Tool Laboratory
+│       │
+│       ├── hooks/                # Functional Logic (Separated from UI)
+│       │   ├── useAuth.js        # Logic for logging in/out & session check
+│       │   └── useHealthCheck.js # Logic for pinging the Backend/DB/AI status
+│       │
+│       └── store/                # Persistent Memory
+│           └── authStore.js      # Global state (Zustand: Auth persistence)
 │
 ├── backend/              # FastAPI (Python)
 │   ├── Dockerfile
