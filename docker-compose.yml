@@ -1,4 +1,7 @@
+version: '3.8'
+
 services:
+  # --- THE MEMORY (PostgreSQL) ---
   db:
     image: postgres:16
     container_name: kether_db
@@ -11,20 +14,22 @@ services:
       - "5432:5432"
     volumes:
       - ./kether_db_data:/var/lib/postgresql/data
-    # ADD THIS SECTION:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d kether"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - kether_net
 
+  # --- THE BRAIN (FastAPI Engine) ---
   backend:
     build: ./backend
     container_name: kether_backend
     restart: always
     depends_on:
       db:
-        condition: service_healthy # Changes from just '- db'
+        condition: service_healthy
     env_file:
       - .env
     environment:
@@ -36,7 +41,10 @@ services:
       - ./backend:/app
       - ./agents:/app/agents
       - ./foundry:/app/foundry
+    networks:
+      - kether_net
 
+  # --- THE FACE (Vite/React) ---
   frontend:
     build: ./frontend
     container_name: kether_frontend
@@ -44,11 +52,16 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - VITE_API_URL=http://localhost:8000
     volumes:
       - ./frontend:/app
-      # This line is a 'trick': it tells Docker NOT to overwrite the 
-      # container's node_modules with your local (empty) folder.
+      # The 'Anonymous Volume' trick to protect container node_modules
       - /app/node_modules 
     depends_on:
       - backend
+    networks:
+      - kether_net
+
+networks:
+  kether_net:
+    driver: bridge

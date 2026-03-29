@@ -1,46 +1,48 @@
-# backend/main.py
-import os
-from fastapi import FastAPI
-from sqlmodel import SQLModel, create_engine, Session, text
-from models.database import Project, Functionality, FunctionalTask, TechnicalTask
+from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
+import time
 
-app = FastAPI(title="Kether API", version="0.1.0")
+# Initializing the Kether Engine
+app = FastAPI(
+    title="Kether AI Orchestrator",
+    version="1.0.0",
+    description="L1-L4 Project Management & Autonomous Execution Engine"
+)
 
-# Database Configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:kether_dev_pass@db:5432/kether")
-engine = create_engine(DATABASE_URL)
+# 1. CORS Configuration
+# This allows our Vite frontend (port 3000) to talk to this API (port 8000)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.on_event("startup")
-def on_startup():
-    # This magic line creates all tables in Postgres based on your models
-    SQLModel.metadata.create_all(engine)
-    print("✅ Kether Engine: Tables Verified/Created")
-
-@app.get("/")
-def health_check():
+# 2. The Health Heartbeat
+@app.get("/health")
+async def health_check():
+    """
+    Role: Environment Check for the Frontend SystemPulse.
+    Returns: The status of the API and the connectivity to the AI provider.
+    """
     return {
-        "status": "Kether Online",
-        "database": "Connected",
-        "layers": ["Project", "Functionality", "Functional Task", "Technical Task"]
+        "status": "ok",
+        "timestamp": time.time(),
+        "ai_status": "ready",  # We'll link this to an OpenAI ping later
+        "version": "1.0.0"
     }
 
-# Quick API to verify AI config
-@app.get("/ai-status")
-def ai_status():
-    has_key = bool(os.getenv("GPT_KEY"))
-    return {"ai_ready": has_key, "provider": "OpenAI (GPT-4o)" if has_key else "None"}
+# 3. Root Endpoint
+@app.get("/")
+async def root():
+    return {"message": "Kether Engine is Online. Awaiting Orchestration Commands."}
 
-@app.on_event("startup")
-def on_startup():
-    retries = 5
-    while retries > 0:
-        try:
-            SQLModel.metadata.create_all(engine)
-            print("✅ Kether Engine: Tables Verified/Created")
-            break
-        except Exception as e:
-            retries -= 1
-            print(f"⌛ Waiting for Database... ({retries} retries left)")
-            time.sleep(3)
-    else:
-        print("❌ Kether Engine: Could not connect to Database.")
+# Future: We will include routers here
+# app.include_router(auth_router, prefix="/v1/auth")
+# app.include_router(project_router, prefix="/v1/projects")
+
+if __name__ == "__main__":
+    import uvicorn
+    # Running the engine with hot-reload for development
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
