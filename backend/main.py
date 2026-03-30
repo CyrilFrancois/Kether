@@ -1,6 +1,7 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import time
+import os
 
 # Initializing the Kether Engine
 app = FastAPI(
@@ -10,39 +11,47 @@ app = FastAPI(
 )
 
 # 1. CORS Configuration
-# This allows our Vite frontend (port 3000) to talk to this API (port 8000)
+# Changed allow_origins to ["*"] temporarily to ensure Docker networking 
+# doesn't block the initial handshake during your setup.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 2. The Health Heartbeat
+# 2. System Health (The First Dot)
 @app.get("/health")
 async def health_check():
-    """
-    Role: Environment Check for the Frontend SystemPulse.
-    Returns: The status of the API and the connectivity to the AI provider.
-    """
+    """Returns the core API status."""
     return {
         "status": "ok",
         "timestamp": time.time(),
-        "ai_status": "ready",  # We'll link this to an OpenAI ping later
         "version": "1.0.0"
     }
 
-# 3. Root Endpoint
+# 3. AI Status (The Second Dot)
+@app.get("/ai-status")
+async def ai_status():
+    """
+    Specifically created for the frontend's separate ping.
+    Simulates checking the OpenAI connection.
+    """
+    # Later, we will add an actual OpenAI ping here
+    api_key_exists = os.getenv("OPENAI_API_KEY") is not None
+    
+    return {
+        "status": "ready" if api_key_exists else "error",
+        "provider": "openai",
+        "latency": "12ms"
+    }
+
+# 4. Root Endpoint
 @app.get("/")
 async def root():
     return {"message": "Kether Engine is Online. Awaiting Orchestration Commands."}
 
-# Future: We will include routers here
-# app.include_router(auth_router, prefix="/v1/auth")
-# app.include_router(project_router, prefix="/v1/projects")
-
 if __name__ == "__main__":
     import uvicorn
-    # Running the engine with hot-reload for development
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # --- THE MEMORY (PostgreSQL) ---
   db:
     image: postgres:16
     container_name: kether_db
@@ -22,7 +21,6 @@ services:
     networks:
       - kether_net
 
-  # --- THE BRAIN (FastAPI Engine) ---
   backend:
     build: ./backend
     container_name: kether_backend
@@ -34,7 +32,7 @@ services:
       - .env
     environment:
       - DATABASE_URL=postgresql://postgres:${DB_PASSWORD:-kether_dev_pass}@db:5432/kether
-      - OPENAI_API_KEY=${GPT_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
       - "8000:8000"
     volumes:
@@ -44,19 +42,22 @@ services:
     networks:
       - kether_net
 
-  # --- THE FACE (Vite/React) ---
   frontend:
-    build: ./frontend
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: kether_frontend
     restart: always
+    # FIX 1: Map to 0.0.0.0 explicitly via the command if the Dockerfile missed it
+    command: npm run dev -- --host 0.0.0.0
     ports:
       - "3000:3000"
     environment:
       - VITE_API_URL=http://localhost:8000
     volumes:
       - ./frontend:/app
-      # The 'Anonymous Volume' trick to protect container node_modules
-      - /app/node_modules 
+      # FIX 2: Ensure node_modules is an anonymous volume so local empty folders don't overwrite the container
+      - /app/node_modules
     depends_on:
       - backend
     networks:
