@@ -141,9 +141,17 @@ Kether/
 │   ├── requirements.txt
 │   ├── main.py           # Entry point
 │   ├── api/              # Route handlers (v1/projects, v1/tasks)
+│   │   ├──  __init__.py
+│   │   ├──  auth.py
 │   ├── core/             # Auth, Database config, Global constants
+│   │   ├──  __init__.py
+│   │   ├──  database.py
+│   │   ├──  security.py
 │   ├── models/           # SQLAlchemy/SQLModel (Database schemas)
+│   │   ├──  __init__.py
+│   │   ├──  user.py
 │   └── services/         # Business logic (The "Orchestrator")
+│   │   ├──  __init__.py
 │
 ├── agents/               # The AI Intelligence Layer
 │   ├── __init__.py
