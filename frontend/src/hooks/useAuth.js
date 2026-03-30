@@ -2,35 +2,38 @@ import { useState } from 'react';
 import axios from 'axios';
 import useAuthStore from '../store/authStore';
 
-// We pull the base URL from our Vite environment variables
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export const useAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   
-  // Accessing the updated Zustand store actions
   const loginStore = useAuthStore((state) => state.login);
   const logoutStore = useAuthStore((state) => state.logout);
 
-  /**
-   * Logic: Standard Email/Password Login
-   */
   const login = async (email, password) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await axios.post(`${API_URL}/login`, {
+      const response = await axios.post(`${API_URL}/auth/login`, {
         email,
         password
       });
 
+      // 1. Extract data from backend response
       const { user, access_token } = response.data;
 
-      // Update global state & persistence
+      // 2. Persist token to LocalStorage (so refreshing doesn't log you out)
+      localStorage.setItem('kether_token', access_token);
+      
+      // 3. Set Default Axios Header for all future calls
+      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+
+      // 4. Update Zustand Store
       loginStore(user, access_token);
-      return true;
+      
+      return true; // Tells the component to navigate
     } catch (err) {
       const message = err.response?.data?.detail || "Connection to Kether failed.";
       setError(message);
@@ -40,23 +43,22 @@ export const useAuth = () => {
     }
   };
 
-  /**
-   * Logic: Create a new Free Account
-   */
   const register = async (email, password, fullName) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await axios.post(`${API_URL}/register`, {
+      const response = await axios.post(`${API_URL}/auth/register`, {
         email,
         password,
-        full_name: fullName
+        fullName
       });
 
       const { user, access_token } = response.data;
       
-      // We log them in immediately upon registration
+      localStorage.setItem('kether_token', access_token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      
       loginStore(user, access_token);
       return true;
     } catch (err) {
@@ -69,16 +71,12 @@ export const useAuth = () => {
   };
 
   const logout = () => {
+    localStorage.removeItem('kether_token');
+    delete axios.defaults.headers.common['Authorization'];
     logoutStore();
   };
 
-  return {
-    login,
-    register,
-    logout,
-    isLoading,
-    error
-  };
+  return { login, register, logout, isLoading, error };
 };
 
 export default useAuth;

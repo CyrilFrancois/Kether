@@ -1,31 +1,24 @@
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # 1. Connection String
-# We pull this from the Docker environment variables defined in docker-compose
 DATABASE_URL = os.getenv(
     "DATABASE_URL", 
     "postgresql://postgres:kether_dev_pass@db:5432/kether"
 )
 
 # 2. The Engine
-# The 'engine' is the actual connection to the database
 engine = create_engine(DATABASE_URL)
 
 # 3. Session Factory
-# This creates a 'SessionLocal' class. Each instance of this class 
-# will be a unique database session for a single API request.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # 4. The Base Class
-# Our models (like User and Project) will inherit from this Base
 Base = declarative_base()
 
 # 5. DB Dependency
-# This function is used in FastAPI routes to get a database session 
-# and ensure it closes automatically when the request is finished.
 def get_db():
     db = SessionLocal()
     try:
@@ -33,11 +26,35 @@ def get_db():
     finally:
         db.close()
 
-# 6. Automatic Table Creation
-# This is a 'foundry' helper. It tells SQLAlchemy to look at all 
-# imported models and create any missing tables in Postgres.
+# 6. Modular Table Initialization
 def init_db():
-    # We import models here to avoid circular imports
-    from models.user import User
-    # from models.project import Project (Add this once we build it)
+    reset_requested = os.getenv("RESET_DB", "false").lower() == "true"
+    
+    if reset_requested:
+        print("--- !!! FORCE RESETTING DATABASE !!! ---")
+        Base.metadata.drop_all(bind=engine)
+        print("--- Tables Dropped ---")
+
+    """
+    Checks the registry and creates tables if they don't exist.
+    This keeps the 'core' logic clean and the 'models' modular.
+    """
+    # Import the registry to "wake up" the models
+    import models
+    
+    print("--- Kether Database Foundry: Initializing ---")
+    
+    # Optional: Log which tables we are expecting
+    inspector = inspect(engine)
+    existing_tables = inspector.get_table_names()
+    
+    # Create missing tables
     Base.metadata.create_all(bind=engine)
+    
+    # Verify creation for the logs
+    new_tables = inspect(engine).get_table_names()
+    for table in new_tables:
+        status = "Existing" if table in existing_tables else "CREATED"
+        print(f"  [+] Table: {table: <15} | Status: {status}")
+        
+    print("--- Database Initialization Complete ---")

@@ -1,85 +1,160 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { User, LogOut, Settings as SettingsIcon, ChevronDown } from 'lucide-react';
 import Connection from './pages/Connection';
 import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
 import Foundry from './pages/Foundry';
+import Settings from './pages/Settings'; // Ensure you've created this file
+import useAuthStore from './store/authStore';
+import { useAuth } from './hooks/useAuth';
 
-/**
- * Kether Router & State Controller
- * This component manages which "Tab" is currently active and
- * whether the user has successfully connected to the engine.
- */
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentPage, setCurrentPage] = useState('dashboard'); // Default after login
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = !!user;
+  const { logout } = useAuth();
+  
+  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
 
-  // Logic to handle successful connection
-  const handleLoginSuccess = () => {
-    setIsAuthenticated(true);
+  // Close menu and navigate
+  const navigateTo = (page) => {
+    setCurrentPage(page);
+    setShowAccountMenu(false);
   };
 
-  // If not authenticated, always show the Connection (Gateway) page
   if (!isAuthenticated) {
-    return <Connection onLoginSuccess={handleLoginSuccess} />;
+    return <Connection />;
   }
 
-  // Once authenticated, render the main layout with the active tab
   return (
     <div className="kether-container">
-      {/* Sidebar / Navigation Component will go here later */}
       <nav className="kether-nav">
-        <div className="logo">👑 KETHER</div>
-        <div className="nav-links">
-          <button onClick={() => setCurrentPage('dashboard')} className={currentPage === 'dashboard' ? 'active' : ''}>Overview</button>
-          <button onClick={() => setCurrentPage('workspace')} className={currentPage === 'workspace' ? 'active' : ''}>Workspace</button>
-          <button onClick={() => setCurrentPage('foundry')} className={currentPage === 'foundry' ? 'active' : ''}>Foundry</button>
+        <div className="nav-left">
+          <div className="logo" onClick={() => navigateTo('dashboard')} style={{cursor: 'pointer'}}>
+            👑 KETHER
+          </div>
+          <div className="nav-links">
+            <button onClick={() => navigateTo('dashboard')} className={currentPage === 'dashboard' ? 'active' : ''}>Overview</button>
+            <button onClick={() => navigateTo('workspace')} className={currentPage === 'workspace' ? 'active' : ''}>Workspace</button>
+            <button onClick={() => navigateTo('foundry')} className={currentPage === 'foundry' ? 'active' : ''}>Foundry</button>
+          </div>
+        </div>
+
+        <div className="nav-right">
+          <div className="account-wrapper">
+            <button 
+              className={`account-trigger ${showAccountMenu ? 'active' : ''}`}
+              onClick={() => setShowAccountMenu(!showAccountMenu)}
+            >
+              <div className="avatar-circle">
+                {user?.full_name?.charAt(0) || user?.email?.charAt(0)}
+              </div>
+              <span className="user-name">{user?.full_name || 'Account'}</span>
+              <ChevronDown size={14} className={showAccountMenu ? 'rotate' : ''} />
+            </button>
+
+            {showAccountMenu && (
+              <>
+                <div className="menu-overlay" onClick={() => setShowAccountMenu(false)} />
+                <div className="account-dropdown">
+                  <div className="dropdown-user-info">
+                    <p className="info-name">{user?.full_name}</p>
+                    <p className="info-email">{user?.email}</p>
+                  </div>
+                  <div className="divider" />
+                  <button onClick={() => navigateTo('settings')} className="dropdown-item">
+                    <SettingsIcon size={16} /> Account Settings
+                  </button>
+                  <button onClick={logout} className="dropdown-item logout">
+                    <LogOut size={16} /> Disconnect
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </nav>
 
       <main className="content-area">
-        {currentPage === 'dashboard' && <Dashboard />}
-        {currentPage === 'workspace' && <Workspace />}
-        {currentPage === 'foundry' && <Foundry />}
+        {currentPage === 'dashboard' && <Dashboard user={user} />}
+        {currentPage === 'workspace' && <Workspace user={user} />}
+        {currentPage === 'foundry' && <Foundry user={user} />}
+        {currentPage === 'settings' && <Settings user={user} />}
       </main>
 
       <style jsx>{`
-        .kether-container {
-          display: flex;
-          flex-direction: column;
-          height: 100vh;
+        .kether-container { display: flex; flex-direction: column; height: 100vh; background: #0d1117; color: #c9d1d9; }
+        
+        .kether-nav { 
+          display: flex; 
+          justify-content: space-between; 
+          align-items: center; 
+          padding: 0 2rem; 
+          height: 64px; 
+          background: #161b22; 
+          border-bottom: 1px solid #30363d;
+          z-index: 100;
         }
-        .kether-nav {
-          display: flex;
-          justify-content: space-between;
-          padding: 1rem 2rem;
-          background: #1a1d23;
-          border-bottom: 1px solid #333;
+
+        .nav-left { display: flex; align-items: center; gap: 40px; }
+        .logo { font-weight: bold; letter-spacing: 2px; color: #238636; font-size: 1.1rem; }
+        
+        .nav-links { display: flex; gap: 10px; }
+        .nav-links button { 
+          background: none; border: none; color: #8b949e; 
+          cursor: pointer; font-size: 0.9rem; transition: 0.2s; 
+          padding: 8px 12px; border-radius: 6px;
         }
-        .logo {
-          font-weight: bold;
-          letter-spacing: 2px;
-          color: #3498db;
+        .nav-links button.active { color: #fff; background: #21262d; }
+        .nav-links button:hover { color: #fff; }
+
+        /* Account Trigger & Dropdown */
+        .account-wrapper { position: relative; }
+        
+        .account-trigger {
+          display: flex; align-items: center; gap: 10px;
+          background: none; border: 1px solid transparent;
+          color: #c9d1d9; cursor: pointer; padding: 4px 8px;
+          border-radius: 6px; transition: 0.2s;
         }
-        .nav-links {
-          display: flex;
-          gap: 20px;
+        .account-trigger:hover, .account-trigger.active { background: #21262d; border-color: #30363d; }
+        
+        .avatar-circle {
+          width: 28px; height: 28px; background: #238636;
+          border-radius: 50%; display: flex; align-items: center;
+          justify-content: center; font-size: 12px; font-weight: bold;
+          color: white; text-transform: uppercase;
         }
-        .nav-links button {
-          background: none;
-          border: none;
-          color: #888;
-          cursor: pointer;
-          font-size: 0.9rem;
-          transition: 0.3s;
+        
+        .user-name { font-size: 0.9rem; font-weight: 500; }
+        .rotate { transform: rotate(180deg); }
+
+        .menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 90; }
+
+        .account-dropdown {
+          position: absolute; top: calc(100% + 10px); right: 0;
+          width: 220px; background: #161b22; border: 1px solid #30363d;
+          border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+          padding: 8px 0; z-index: 100;
         }
-        .nav-links button.active, .nav-links button:hover {
-          color: #fff;
+
+        .dropdown-user-info { padding: 12px 16px; }
+        .info-name { margin: 0; font-size: 0.9rem; font-weight: 600; color: #fff; }
+        .info-email { margin: 0; font-size: 0.75rem; color: #8b949e; }
+        
+        .divider { height: 1px; background: #30363d; margin: 8px 0; }
+
+        .dropdown-item {
+          width: 100%; padding: 10px 16px; background: none;
+          border: none; color: #c9d1d9; display: flex;
+          align-items: center; gap: 12px; cursor: pointer;
+          font-size: 0.85rem; transition: 0.2s;
         }
-        .content-area {
-          flex: 1;
-          padding: 20px;
-          overflow-y: auto;
-        }
+        .dropdown-item:hover { background: #21262d; color: #fff; }
+        .dropdown-item.logout { color: #ff7b72; }
+        .dropdown-item.logout:hover { background: #f851491a; }
+
+        .content-area { flex: 1; overflow-y: auto; background: #0d1117; }
       `}</style>
     </div>
   );

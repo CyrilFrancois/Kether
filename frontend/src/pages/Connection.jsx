@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { Lock, Mail, User, ArrowRight, AlertCircle, Chrome, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
-// 1. The Sub-Component (LoginForm)
-const LoginForm = ({ isDisabled }) => {
+const LoginForm = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ email: '', password: '', fullName: '' });
@@ -11,21 +10,27 @@ const LoginForm = ({ isDisabled }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    isSignUp ? await register(formData.email, formData.password, formData.fullName) 
-             : await login(formData.email, formData.password);
+    // Debugging: Check exactly what is being sent
+    console.log("Submitting to Backend:", isSignUp ? "REGISTER" : "LOGIN", formData);
+    
+    if (isSignUp) {
+      await register(formData.email, formData.password, formData.fullName);
+    } else {
+      await login(formData.email, formData.password);
+    }
   };
 
   return (
-    <div className="login-card">
-      <div className="auth-toggle">
-        <button className={!isSignUp ? 'active' : ''} onClick={() => setIsSignUp(false)}>Login</button>
-        <button className={isSignUp ? 'active' : ''} onClick={() => setIsSignUp(true)}>New Account</button>
+    <div className="login-box">
+      <div className="tab-header">
+        <button className={!isSignUp ? 'active' : ''} onClick={() => setIsSignUp(false)}>Sign In</button>
+        <button className={isSignUp ? 'active' : ''} onClick={() => setIsSignUp(true)}>Register</button>
       </div>
 
       <form onSubmit={handleSubmit} className="auth-form">
         {isSignUp && (
-          <div className="input-field">
-            <User size={18} className="field-icon" />
+          <div className="field">
+            <User size={18} className="icon" />
             <input 
               type="text" placeholder="Full Name" required 
               value={formData.fullName}
@@ -34,117 +39,128 @@ const LoginForm = ({ isDisabled }) => {
           </div>
         )}
 
-        <div className="input-field">
-          <Mail size={18} className="field-icon" />
+        <div className="field">
+          <Mail size={18} className="icon" />
           <input 
-            type="email" placeholder="Email Address" required 
+            type="email" placeholder="Email" required 
             value={formData.email}
             onChange={(e) => setFormData({...formData, email: e.target.value})}
           />
         </div>
 
-        <div className="input-field">
-          <Lock size={18} className="field-icon" />
+        <div className="field">
+          <Lock size={18} className="icon" />
           <input 
             type={showPassword ? "text" : "password"} placeholder="Password" required 
             value={formData.password}
             onChange={(e) => setFormData({...formData, password: e.target.value})}
           />
-          <button type="button" className="visibility-toggle" onClick={() => setShowPassword(!showPassword)}>
+          <button type="button" className="eye-btn" onClick={() => setShowPassword(!showPassword)}>
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
 
-        <button type="submit" className="main-submit-btn" disabled={isLoading}>
-          {isLoading ? <div className="spinner" /> : <>{isSignUp ? 'Create Account' : 'Sign In'} <ArrowRight size={18} /></>}
-        </button>
+        <div className="center-actions">
+          <button type="submit" className="primary-btn" disabled={isLoading}>
+            {isLoading ? <div className="loader" /> : <>{isSignUp ? 'Initialize Account' : 'Access Core'} <ArrowRight size={18} /></>}
+          </button>
+        </div>
 
-        {error && <div className="error-banner"><AlertCircle size={14} /><span>{error}</span></div>}
+        {error && <div className="err-msg"><AlertCircle size={14} /><span>{error}</span></div>}
       </form>
 
-      <div className="auth-divider"><span>OR</span></div>
+      <div className="divider"><span>OR</span></div>
 
-      <button className="social-provider-btn" onClick={() => console.log("Google Auth")}>
-        <Chrome size={18} /> Continue with Google
-      </button>
+      <div className="center-actions">
+        <button className="google-btn" type="button">
+          <Chrome size={18} /> Google Identity
+        </button>
+      </div>
 
-      <style jsx>{`
-        .login-card { width: 100%; }
-        .auth-toggle { display: flex; margin-bottom: 24px; border-bottom: 1px solid #30363d; }
-        .auth-toggle button { flex: 1; background: none; border: none; color: #8b949e; padding: 12px; cursor: pointer; border-bottom: 2px solid transparent; transition: 0.2s; }
-        .auth-toggle button.active { color: #58a6ff; border-bottom-color: #58a6ff; }
-        .auth-form { display: flex; flex-direction: column; gap: 12px; align-items: center; }
-        .input-field { width: 100%; display: flex; align-items: center; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0 12px; }
-        input { flex: 1; background: transparent; border: none; color: #fff; padding: 12px 0; outline: none; }
-        .field-icon { color: #8b949e; margin-right: 10px; }
-        .visibility-toggle { background: none; border: none; color: #8b949e; cursor: pointer; }
+      <style>{`
+        .login-box { width: 100%; display: flex; flex-direction: column; }
         
-        /* Fixed Button Widths */
-        .main-submit-btn { width: 200px; background: #238636; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 10px; cursor: pointer; margin-top: 10px; }
-        .social-provider-btn { width: 240px; margin: 0 auto; display: flex; align-items: center; justify-content: center; gap: 10px; background: #f0f6fc; color: #1f2328; border: none; padding: 10px; border-radius: 6px; font-weight: 500; cursor: pointer; }
+        .tab-header { display: flex; margin-bottom: 24px; border-bottom: 1px solid #30363d; }
+        .tab-header button { flex: 1; background: none; border: none; color: #8b949e; padding: 12px; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 600; }
+        .tab-header button.active { color: #238636; border-bottom-color: #238636; }
+
+        .auth-form { display: flex; flex-direction: column; gap: 16px; }
         
-        .auth-divider { text-align: center; margin: 24px 0; position: relative; }
-        .auth-divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #30363d; }
-        .auth-divider span { background: #1a1d23; padding: 0 12px; color: #8b949e; font-size: 0.75rem; position: relative; }
-        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .field { display: flex; align-items: center; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 0 12px; }
+        .field input { flex: 1; background: transparent; border: none; color: #fff; padding: 12px 0; outline: none; }
+        .icon { color: #8b949e; margin-right: 10px; }
+        .eye-btn { background: none; border: none; color: #8b949e; cursor: pointer; }
+
+        /* STOP STRETCHING: Center the buttons and give them a fixed width */
+        .center-actions {
+          display: flex;
+          justify-content: center;
+          width: 100%;
+          margin-top: 8px;
+        }
+
+        .primary-btn { 
+          width: 220px !important; /* Forces the size */
+          background: #238636; color: white; border: none; padding: 12px; 
+          border-radius: 6px; font-weight: 700; display: flex; align-items: center; 
+          justify-content: center; gap: 10px; cursor: pointer; 
+        }
+
+        .google-btn { 
+          width: 220px !important; 
+          background: #fff; color: #1f2328; border: none; padding: 10px; 
+          border-radius: 6px; font-weight: 600; display: flex; align-items: center; 
+          justify-content: center; gap: 10px; cursor: pointer;
+        }
+        
+        .divider { text-align: center; margin: 24px 0; position: relative; }
+        .divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #30363d; }
+        .divider span { background: #1a1d23; padding: 0 12px; color: #8b949e; font-size: 0.75rem; position: relative; }
+        
+        .err-msg { color: #ff7b72; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; justify-content: center; }
+        .loader { width: 18px; height: 18px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
 };
 
-// 2. The Main Page Component (Connection)
 const Connection = () => {
   return (
-    <div className="connection-page">
-      <header className="page-header">
-        <div className="logo-glow">K</div>
-        <h1>Kether Foundation</h1>
-        <p>Intelligence Orchestration & Logic Management</p>
-      </header>
-
-      <main className="connection-container">
+    <div className="page">
+      <div className="glass-card">
+        <header>
+          <div className="logo">K</div>
+          <h1>Kether Foundation</h1>
+          <p>Accessing Secure Intelligence Layer</p>
+        </header>
         <LoginForm />
-      </main>
+      </div>
 
-      <footer className="page-footer">
-        <div className="system-status">
-          <div className="pulse-dot"></div>
-          <span>Kether Core Online</span>
-        </div>
-      </footer>
-
-      <style jsx>{`
-        .connection-page {
+      <style>{`
+        .page {
           min-height: 100vh;
           width: 100vw;
           display: flex;
-          flex-direction: column;
           align-items: center;
           justify-content: center;
-          background: radial-gradient(circle at center, #1a1d23 0%, #0f1115 100%);
+          background: #0f1115;
           padding: 20px;
+          box-sizing: border-box;
         }
-
-        .page-header { text-align: center; margin-bottom: 40px; }
-        .logo-glow { width: 60px; height: 60px; background: #238636; color: white; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; margin: 0 auto 20px; box-shadow: 0 0 20px rgba(35, 134, 54, 0.4); }
-        .page-header h1 { font-size: 2.2rem; color: white; margin: 0; letter-spacing: -1px; }
-        .page-header p { color: #8b949e; margin-top: 8px; font-size: 1rem; }
-
-        .connection-container {
+        .glass-card {
           width: 100%;
           max-width: 400px;
           background: #1a1d23;
           border: 1px solid #30363d;
-          border-radius: 12px;
           padding: 40px;
-          box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+          border-radius: 12px;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
-
-        .page-footer { margin-top: 40px; }
-        .system-status { display: flex; align-items: center; gap: 8px; color: #8b949e; font-size: 0.8rem; font-weight: 500; }
-        .pulse-dot { width: 8px; height: 8px; background: #238636; border-radius: 50%; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        header { text-align: center; margin-bottom: 32px; }
+        .logo { width: 50px; height: 50px; background: #238636; color: #fff; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 8px; font-size: 24px; }
+        h1 { color: #fff; margin: 0; font-size: 1.8rem; }
+        p { color: #8b949e; font-size: 0.9rem; margin-top: 8px; }
       `}</style>
     </div>
   );

@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum
+from sqlalchemy.orm import relationship # <--- Added this
 from sqlalchemy.sql import func
 import enum
 from core.database import Base
@@ -25,5 +26,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # Optional: Link to projects once we build the L1-L4 logic
-    # projects = relationship("Project", back_populates="owner")
+    # --- The Relationship Piece ---
+    # This connects the User to the Projects table.
+    # back_populates="owner" must match the variable name in Project model.
+    projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")

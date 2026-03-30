@@ -59,6 +59,7 @@ Kether organizes work through four recursive layers to provide maximum context t
 3.  **Launch the Stack:**
     ```bash
     docker-compose up --build
+    RESET_DB=true docker-compose up --build
     ```
     * **Frontend:** `http://localhost:3000`
     * **Backend API:** `http://localhost:8000/docs`

@@ -1,22 +1,36 @@
 import React, { useState } from 'react';
 import { Lock, Mail, User, ArrowRight, AlertCircle, Chrome, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom'; // <--- 1. Add this import
 
 const LoginForm = ({ isDisabled }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ email: '', password: '', fullName: '' });
+  
   const { login, register, isLoading, error } = useAuth();
+  const navigate = useNavigate(); // <--- 2. Initialize navigation
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    isSignUp ? await register(formData.email, formData.password, formData.fullName) 
-             : await login(formData.email, formData.password);
+    
+    let success = false;
+    
+    if (isSignUp) {
+      success = await register(formData.email, formData.password, formData.fullName);
+    } else {
+      success = await login(formData.email, formData.password);
+    }
+
+    // 3. Trigger the redirect if the hook returns true
+    if (success) {
+      console.log("Access Granted. Redirecting to Dashboard...");
+      navigate('/dashboard'); 
+    }
   };
 
   return (
     <div className="auth-wrapper">
-      {/* 1. Header & Decoration */}
       <div className="auth-header">
         <div className="logo-accent">K</div>
         <h1>{isSignUp ? "Create Account" : "Welcome Back"}</h1>
@@ -24,10 +38,21 @@ const LoginForm = ({ isDisabled }) => {
       </div>
 
       <div className="auth-card">
-        {/* 2. Mode Switcher */}
         <div className="mode-switcher">
-          <button className={!isSignUp ? 'active' : ''} onClick={() => setIsSignUp(false)}>Login</button>
-          <button className={isSignUp ? 'active' : ''} onClick={() => setIsSignUp(true)}>Register</button>
+          <button 
+            type="button"
+            className={!isSignUp ? 'active' : ''} 
+            onClick={() => setIsSignUp(false)}
+          >
+            Login
+          </button>
+          <button 
+            type="button"
+            className={isSignUp ? 'active' : ''} 
+            onClick={() => setIsSignUp(true)}
+          >
+            Register
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
@@ -65,9 +90,8 @@ const LoginForm = ({ isDisabled }) => {
 
           {error && <div className="error-msg"><AlertCircle size={14}/> {error}</div>}
 
-          {/* 3. Action Buttons (Explicitly sized to stop stretching) */}
           <div className="action-area">
-            <button type="submit" className="btn-primary" disabled={isLoading}>
+            <button type="submit" className="btn-primary" disabled={isLoading || isDisabled}>
               {isLoading ? <span className="loader"></span> : <>{isSignUp ? 'Sign Up' : 'Sign In'} <ArrowRight size={18}/></>}
             </button>
           </div>
@@ -83,7 +107,7 @@ const LoginForm = ({ isDisabled }) => {
       </div>
 
       <style jsx>{`
-        /* Centering the entire component on the screen */
+        /* ... (Keep your existing styles here) ... */
         .auth-wrapper {
           display: flex;
           flex-direction: column;
@@ -181,7 +205,6 @@ const LoginForm = ({ isDisabled }) => {
           width: 100%;
         }
 
-        /* FORCE FIX: Buttons use max-content to prevent full-width stretching */
         .btn-primary {
           width: max-content !important;
           min-width: 180px;
