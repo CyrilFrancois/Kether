@@ -1,152 +1,270 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState } from 'react';
+import { Lock, Mail, User, ArrowRight, AlertCircle, Chrome, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
-/**
- * Connection Page: The Gateway to Kether
- * Roles: 
- * 1. Identity (Password check)
- * 2. Environment Check (Backend/AI status)
- */
-const Connection = ({ onLoginSuccess }) => {
-  const [password, setPassword] = useState('');
-  const [status, setStatus] = useState({ backend: 'checking', ai: 'checking' });
-  const [error, setError] = useState('');
+const LoginForm = ({ isDisabled }) => {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    fullName: ''
+  });
+  
+  const { login, register, isLoading, error } = useAuth();
 
-  // Environment Check Logic
-  useEffect(() => {
-    const checkSystem = async () => {
-      try {
-        const res = await axios.get('http://localhost:8000/ai-status');
-        setStatus({ 
-          backend: 'online', 
-          ai: res.data.ai_ready ? 'online' : 'error' 
-        });
-      } catch (err) {
-        setStatus({ backend: 'error', ai: 'error' });
-      }
-    };
-    checkSystem();
-  }, []);
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // For now, we use a simple check or connect to an auth endpoint
-    if (password === 'kether_dev_pass' || password === 'admin') {
-      onLoginSuccess();
+    if (isSignUp) {
+      await register(formData.email, formData.password, formData.fullName);
     } else {
-      setError('Invalid Access Key');
+      await login(formData.email, formData.password);
     }
   };
 
   return (
-    <div className="auth-wrapper">
-      <div className="auth-card">
-        <div className="auth-header">
-          <span className="crown-icon">👑</span>
-          <h1>KETHER</h1>
-          <p>Autonomous Project Orchestrator</p>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <label>Access Key</label>
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className={error ? 'input-error' : ''}
-            />
-            {error && <span className="error-text">{error}</span>}
-          </div>
-
-          <button 
-            type="submit" 
-            className="login-btn"
-            disabled={status.backend !== 'online'}
-          >
-            Initialize Session
-          </button>
-        </form>
-
-        <div className="system-pulse-container">
-          <div className="pulse-item">
-            <span className={`dot ${status.backend}`}></span>
-            API / Engine
-          </div>
-          <div className="pulse-item">
-            <span className={`dot ${status.ai}`}></span>
-            AI (GPT-4o)
-          </div>
-        </div>
+    <div className="login-form-container">
+      {/* 1. Toggle Header */}
+      <div className="auth-toggle">
+        <button 
+          className={!isSignUp ? 'active' : ''} 
+          onClick={() => { setIsSignUp(false); setShowPassword(false); }}
+        >
+          Login
+        </button>
+        <button 
+          className={isSignUp ? 'active' : ''} 
+          onClick={() => { setIsSignUp(true); setShowPassword(false); }}
+        >
+          New Account
+        </button>
       </div>
 
+      <form onSubmit={handleSubmit} className="auth-form">
+        {/* 2. Identity Inputs */}
+        {isSignUp && (
+          <div className="input-field">
+            <User size={18} className="field-icon" />
+            <input
+              type="text"
+              placeholder="Full Name"
+              required={isSignUp}
+              value={formData.fullName}
+              onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+              disabled={isDisabled || isLoading}
+            />
+          </div>
+        )}
+
+        <div className="input-field">
+          <Mail size={18} className="field-icon" />
+          <input
+            type="email"
+            placeholder="Email Address"
+            required
+            value={formData.email}
+            onChange={(e) => setFormData({...formData, email: e.target.value})}
+            disabled={isDisabled || isLoading}
+          />
+        </div>
+
+        <div className="input-field">
+          <Lock size={18} className="field-icon" />
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Password"
+            required
+            value={formData.password}
+            onChange={(e) => setFormData({...formData, password: e.target.value})}
+            disabled={isDisabled || isLoading}
+          />
+          <button 
+            type="button" 
+            className="visibility-toggle"
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        </div>
+
+        {/* 3. Primary Action Button */}
+        <button 
+          type="submit" 
+          className="main-submit-btn" 
+          disabled={isDisabled || isLoading || !formData.email || !formData.password}
+        >
+          {isLoading ? (
+            <div className="spinner" />
+          ) : (
+            <>
+              {isSignUp ? 'Create Account' : 'Sign In'}
+              <ArrowRight size={18} />
+            </>
+          )}
+        </button>
+
+        {error && (
+          <div className="error-banner">
+            <AlertCircle size={14} />
+            <span>{error}</span>
+          </div>
+        )}
+      </form>
+
+      {/* 4. Social Integration */}
+      <div className="auth-divider">
+        <span>OR</span>
+      </div>
+
+      <button 
+        className="social-provider-btn" 
+        onClick={() => console.log("Google Auth")}
+        disabled={isDisabled || isLoading}
+      >
+        <Chrome size={18} />
+        Continue with Google
+      </button>
+
       <style jsx>{`
-        .auth-wrapper {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          height: 100vh;
-          background: #0f1115;
-        }
-        .auth-card {
-          background: #1a1d23;
-          padding: 40px;
-          border-radius: 12px;
-          width: 100%;
-          max-width: 400px;
-          border: 1px solid #333;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .auth-header { text-align: center; margin-bottom: 30px; }
-        .crown-icon { font-size: 3rem; display: block; margin-bottom: 10px; }
-        .auth-header h1 { margin: 0; letter-spacing: 4px; color: #fff; }
-        .auth-header p { color: #666; font-size: 0.8rem; margin-top: 5px; }
+        .login-form-container { width: 100%; max-width: 100%; }
         
-        .input-group { margin-bottom: 20px; }
-        label { display: block; color: #888; margin-bottom: 8px; font-size: 0.8rem; }
-        input {
-          width: 100%;
-          background: #0f1115;
-          border: 1px solid #444;
-          padding: 12px;
-          border-radius: 6px;
-          color: white;
-          outline: none;
-        }
-        input:focus { border-color: #3498db; }
-        .input-error { border-color: #e74c3c; }
-        .error-text { color: #e74c3c; font-size: 0.75rem; margin-top: 5px; display: block; }
-
-        .login-btn {
-          width: 100%;
-          padding: 12px;
-          background: #3498db;
-          color: white;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          font-weight: bold;
-          transition: 0.3s;
-        }
-        .login-btn:disabled { background: #333; cursor: not-allowed; }
-        .login-btn:hover:not(:disabled) { background: #2980b9; }
-
-        .system-pulse-container {
-          margin-top: 30px;
-          padding-top: 20px;
-          border-top: 1px solid #333;
+        .auth-toggle {
           display: flex;
-          justify-content: space-around;
+          margin-bottom: 24px;
+          border-bottom: 1px solid #30363d;
         }
-        .pulse-item { font-size: 0.7rem; color: #666; display: flex; align-items: center; gap: 8px; }
-        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-        .online { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
-        .checking { background: #f1c40f; }
-        .error { background: #e74c3c; box-shadow: 0 0 8px #e74c3c; }
+
+        .auth-toggle button {
+          flex: 1;
+          background: none;
+          border: none;
+          color: #8b949e;
+          padding: 12px;
+          cursor: pointer;
+          font-weight: 500;
+          transition: 0.2s;
+          border-bottom: 2px solid transparent;
+        }
+
+        .auth-toggle button.active {
+          color: #58a6ff;
+          border-bottom-color: #58a6ff;
+        }
+
+        .auth-form { display: flex; flex-direction: column; gap: 12px; }
+
+        .input-field {
+          display: flex;
+          align-items: center;
+          background: #0d1117;
+          border: 1px solid #30363d;
+          border-radius: 6px;
+          padding: 0 12px;
+          transition: border-color 0.2s;
+        }
+
+        .input-field:focus-within { border-color: #58a6ff; }
+
+        .field-icon { color: #8b949e; margin-right: 10px; }
+
+        input {
+          flex: 1;
+          background: transparent;
+          border: none;
+          color: #c9d1d9;
+          padding: 12px 0;
+          outline: none;
+          font-size: 0.95rem;
+        }
+
+        .visibility-toggle {
+          background: none;
+          border: none;
+          color: #8b949e;
+          cursor: pointer;
+          padding: 5px;
+        }
+
+        .main-submit-btn {
+          margin-top: 10px;
+          background: #238636;
+          color: white;
+          border: 1px solid rgba(240, 246, 252, 0.1);
+          padding: 12px;
+          border-radius: 6px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          cursor: pointer;
+          transition: 0.2s;
+        }
+
+        .main-submit-btn:hover:not(:disabled) { background: #2ea043; }
+        .main-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .auth-divider {
+          text-align: center;
+          margin: 24px 0;
+          position: relative;
+        }
+        
+        .auth-divider::before {
+          content: "";
+          position: absolute;
+          top: 50%; left: 0; right: 0;
+          height: 1px; background: #30363d;
+        }
+
+        .auth-divider span {
+          background: #1a1d23; /* Matches your Card background */
+          padding: 0 12px;
+          color: #8b949e;
+          font-size: 0.75rem;
+          position: relative;
+          z-index: 2;
+        }
+
+        .social-provider-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          background: #f0f6fc;
+          color: #1f2328;
+          border: 1px solid rgba(27, 31, 36, 0.15);
+          padding: 10px;
+          border-radius: 6px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: 0.2s;
+        }
+
+        .error-banner {
+          background: rgba(248, 81, 73, 0.1);
+          border: 1px solid rgba(248, 81, 73, 0.4);
+          color: #ff7b72;
+          padding: 10px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.85rem;
+        }
+
+        .spinner {
+          width: 18px; height: 18px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
 };
 
-export default Connection;
+export default LoginForm;

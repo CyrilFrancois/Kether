@@ -2,45 +2,65 @@ import { useState } from 'react';
 import axios from 'axios';
 import useAuthStore from '../store/authStore';
 
-/**
- * useAuth Hook
- * Role: The logic controller for Identity and Session management.
- * Provides: login function, logout function, and loading/error states.
- */
+// We pull the base URL from our Vite environment variables
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 export const useAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   
-  // Connect to our global Zustand store (we'll create this next)
-  const { setToken, setUser, clearAuth } = useAuthStore();
+  // Accessing the updated Zustand store actions
+  const loginStore = useAuthStore((state) => state.login);
+  const logoutStore = useAuthStore((state) => state.logout);
 
-  const login = async (accessKey) => {
+  /**
+   * Logic: Standard Email/Password Login
+   */
+  const login = async (email, password) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // 1. In a real scenario, we POST to the backend
-      // const response = await axios.post('http://localhost:8000/v1/auth/login', {
-      //   key: accessKey
-      // });
-      
-      // 2. For now, we simulate the "Secure Handshake"
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const response = await axios.post(`${API_URL}/login`, {
+        email,
+        password
+      });
 
-      if (accessKey === 'kether_dev_pass' || accessKey === 'admin') {
-        const mockUser = { id: 1, name: 'Architect', role: 'admin' };
-        const mockToken = 'kether_jwt_token_xyz_123';
+      const { user, access_token } = response.data;
 
-        // 3. Update Global Store & LocalStorage
-        setToken(mockToken);
-        setUser(mockUser);
-        
-        return true;
-      } else {
-        throw new Error('Invalid Access Key. Handshake failed.');
-      }
+      // Update global state & persistence
+      loginStore(user, access_token);
+      return true;
     } catch (err) {
-      const message = err.response?.data?.detail || err.message;
+      const message = err.response?.data?.detail || "Connection to Kether failed.";
+      setError(message);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Logic: Create a new Free Account
+   */
+  const register = async (email, password, fullName) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await axios.post(`${API_URL}/register`, {
+        email,
+        password,
+        full_name: fullName
+      });
+
+      const { user, access_token } = response.data;
+      
+      // We log them in immediately upon registration
+      loginStore(user, access_token);
+      return true;
+    } catch (err) {
+      const message = err.response?.data?.detail || "Registration failed.";
       setError(message);
       return false;
     } finally {
@@ -49,12 +69,12 @@ export const useAuth = () => {
   };
 
   const logout = () => {
-    clearAuth();
-    // Redirect logic is handled by App.jsx observing the store
+    logoutStore();
   };
 
   return {
     login,
+    register,
     logout,
     isLoading,
     error

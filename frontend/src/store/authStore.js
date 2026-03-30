@@ -3,46 +3,67 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 /**
  * Auth Store (Zustand)
- * Role: Global State Management for Identity.
- * Features: Persistence (localStorage) so the session survives refreshes.
+ * Role: Global State Management for Identity & Session Persistence.
  */
 const useAuthStore = create(
   persist(
-    (set) => ({
+    (set, get) => ({
       // --- State ---
       token: null,
       user: null,
       isAuthenticated: false,
+      isInitialized: false, // Tracks if we've finished checking the local storage
 
       // --- Actions ---
-      
-      /**
-       * Updates the session token and flips the auth flag.
-       * @param {string} token - The JWT or Access Key from the backend.
-       */
-      setToken: (token) => set({ 
-        token, 
-        isAuthenticated: !!token 
-      }),
 
       /**
-       * Updates the user profile data.
-       * @param {Object} user - { id, name, role }
+       * Primary Login Success Handler.
+       * Sets the JWT and the User object simultaneously.
+       */
+      login: (userData, accessToken) => {
+        set({
+          token: accessToken,
+          user: userData,
+          isAuthenticated: true,
+        });
+      },
+
+      /**
+       * Updates the User profile without touching the token.
+       * Useful for after email verification or profile updates.
        */
       setUser: (user) => set({ user }),
 
       /**
-       * Clears all session data (Logout).
+       * The 'Nuke' Option: Standard Logout logic.
+       * Clears everything from State and LocalStorage.
        */
-      clearAuth: () => set({ 
-        token: null, 
-        user: null, 
-        isAuthenticated: false 
-      }),
+      logout: () => {
+        set({
+          token: null,
+          user: null,
+          isAuthenticated: false,
+        });
+        // Optional: Add a redirect to '/' here if using window.location
+      },
+
+      /**
+       * Helper to check if a session is likely still valid.
+       */
+      checkAuth: () => {
+        const { token, user } = get();
+        return !!(token && user);
+      }
     }),
     {
-      name: 'kether-auth-storage', // Unique key in LocalStorage
+      name: 'kether-identity-storage', // The key in browser LocalStorage
       storage: createJSONStorage(() => localStorage),
+      // Only persist these fields (security best practice)
+      partialize: (state) => ({ 
+        token: state.token, 
+        user: state.user, 
+        isAuthenticated: state.isAuthenticated 
+      }),
     }
   )
 );
