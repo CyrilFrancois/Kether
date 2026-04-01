@@ -1,32 +1,35 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum
-from sqlalchemy.orm import relationship # <--- Added this
-from sqlalchemy.sql import func
-import enum
-from core.database import Base
+from typing import List, Optional
+from datetime import datetime
+from enum import Enum
+from sqlmodel import SQLModel, Field, Relationship
 
-class AuthProvider(str, enum.Enum):
-    LOCAL = "local"     # Email + Password
-    GOOGLE = "google"   # OAuth2
+class AuthProvider(str, Enum):
+    LOCAL = "local"
+    GOOGLE = "google"
 
-class User(Base):
-    __tablename__ = "users"
+class User(SQLModel, table=True):
+    # SQLModel uses 'table=True' to define the SQLAlchemy metadata
+    __tablename__: str = "users" 
 
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=True) # Null if Google user
-    full_name = Column(String, nullable=True)
-    avatar_url = Column(String, nullable=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(unique=True, index=True, nullable=False)
+    hashed_password: Optional[str] = Field(default=None) # Null if Google user
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
     
     # Auth Logic
-    provider = Column(String, default=AuthProvider.LOCAL)
-    is_verified = Column(Boolean, default=False)
-    verification_token = Column(String, nullable=True)
+    provider: str = Field(default=AuthProvider.LOCAL)
+    is_verified: bool = Field(default=False)
+    verification_token: Optional[str] = None
     
     # Metadata
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
-    # --- The Relationship Piece ---
-    # This connects the User to the Projects table.
-    # back_populates="owner" must match the variable name in Project model.
-    projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
+    # --- THE CRITICAL FIX ---
+    # We use a string "Project" and back_populates="owner"
+    # This matches the Project class we defined previously.
+    projects: List["Project"] = Relationship(
+        back_populates="owner", 
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
