@@ -4,9 +4,9 @@ from contextlib import asynccontextmanager
 import time
 import os
 
-# --- 1. IMPORT DATABASE & MODELS ---
+# --- 1. IMPORT DATABASE, MODELS & ROUTERS ---
 from core.database import init_db
-from api import auth
+from api import auth, projects  # Added projects router
 
 # --- 2. LIFESPAN MANAGEMENT ---
 @asynccontextmanager
@@ -14,8 +14,8 @@ async def lifespan(app: FastAPI):
     # This runs ONCE when the docker container starts
     print("--- KETHER ENGINE STARTING ---")
     try:
-        # We call init_db here. This will check the RESET_DB env var 
-        # we added to your docker-compose earlier.
+        # init_db() ensures all tables (User, Project, Functionality, etc.) 
+        # are created in Postgres upon startup
         init_db()  
     except Exception as e:
         print(f"Critical Error during DB Init: {e}")
@@ -34,8 +34,6 @@ app = FastAPI(
 )
 
 # 3. CORS Configuration
-# In a professional "Pro" solution, you'd eventually replace ["*"] 
-# with your actual frontend domain for better security.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -45,9 +43,12 @@ app.add_middleware(
 )
 
 # 4. REGISTER ROUTERS
-# IMPORTANT: The prefix is "/auth". 
-# Your frontend fetch should be: fetch('/auth/me', ...)
+# Identity & Profile Management
 app.include_router(auth.router, prefix="/auth", tags=["Identity"])
+
+# Orchestration Engine (Project Hierarchy, Map, and Backlog)
+# This enables /projects/ endpoints as defined in backend/api/projects.py
+app.include_router(projects.router, prefix="/projects", tags=["Orchestration"])
 
 # 5. System Health
 @app.get("/health")
@@ -61,7 +62,8 @@ async def health_check():
 # 6. AI Status
 @app.get("/ai-status")
 async def ai_status():
-    api_key_exists = bool(os.getenv("OPENAI_API_KEY"))
+    # Looks for GPT_KEY as per your README/env setup
+    api_key_exists = bool(os.getenv("GPT_KEY"))
     return {
         "status": "ready" if api_key_exists else "error",
         "provider": "openai",
@@ -75,5 +77,5 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    # Use 'main:app' to ensure the lifespan and routes load correctly
+    # Standard uvicorn entry point
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

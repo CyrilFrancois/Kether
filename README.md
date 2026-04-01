@@ -168,12 +168,66 @@ Kether/
 
 ---
 
+🛠 The Workspace: Orchestration & Execution
+The Workspace is the heart of Kether’s mission control. It provides two distinct lenses through which to view your project: the Project View for high-level architecture and the Backlog View for granular execution. Both views sync to the same underlying data, ensuring that your intent (The "Why") always matches the code (The "How").
+
+1. Project View (The Architectural Blueprint)
+This is a graphical, hierarchical map of your project. It is designed to provide the AI with a "Deep Context" of the entire system before a single line of code is written.
+
+Layer 1: Project (The North Star)
+
+Technical DNA: Define the Stack (e.g., FastAPI/React), Architecture (e.g., Microservices), and Coding Standards (e.g., Strict Typing).
+
+UI/UX Signature: Set the design system template (e.g., Kether Dark) and define the primary input/output flows of the entire application.
+
+Layer 2: Functionality (The User Story)
+
+Intent: Formatted as "The user can [Action]" (e.g., The user can register an account).
+
+Metrics: Inherits a Difficulty Score (1–10) and a Completion % calculated from its child tasks.
+
+Layer 3: Functional Task (The Logic Flow)
+
+Behavioral Mapping: Visualizes the logic path: Trigger [Click Sign-in] → Logic [Verify Credentials] → Success [Dashboard].
+
+Success Criteria: Defines the specific state changes expected after execution.
+
+Layer 4: Technical & To-Do Tasks (The Atomic Layer)
+
+Engineering Strategy: Brief "How-to" instructions for the Agent (e.g., Use Argon2 for password hashing).
+
+Checklist: The minimal, non-decomposable units of work that guide the Agent’s step-by-step progress.
+
+🛡️ Cascade Integrity: Kether maintains a strict parent-child relationship. Deleting a parent node triggers an automated recursive cleanup of all nested tasks to prevent "Ghost Context" in the AI's memory.
+
+2. Backlog View (The Execution Factory)
+While the Project View focuses on hierarchy, the Backlog View flattens the mission into a high-performance execution grid inspired by tools like Jira and Linear.
+
+Global Filters: Quickly pivot the view by Project, Assigned AI Agent, Priority, or Complexity.
+
+Smart Sorting: Sort by "AI ROI"—identifying functionalities with the highest impact but the lowest technical difficulty.
+
+Status Pipelines: Track every task through its lifecycle: Draft → Ready for Agent → In Foundry → Validating → Done.
+
+Bulk AI Decomposing: Select multiple Functional Tasks and trigger the LLM to auto-generate the Technical and To-Do layers in seconds.
+
+🔄 The Interaction Loop
+Draft: Define your Project and Technical DNA in the Project View.
+
+Decompose: Use the AI Decomposer to turn one-sentence Functionalities into full 4-layer trees.
+
+Refine: Graphically reorder the logic flows to match your specific vision.
+
+Execute: Switch to the Backlog to assign tasks to Agents and watch the "Pulse" move from Pending to Done.
+
+---
+
 ## The Big Scheme: Kether’s Development Roadmap
 
-### Phase 1: The Infrastructure (Where we are now). 
+### Phase 1: The Infrastructure. 
 Setting up the Dockerized environment, the persistent database, and the "Three Tab" skeleton.
 
-### Phase 2: The Data Backbone. 
+### Phase 2: The Data Backbone (Where we are now). 
 Defining the SQL schemas for the 4-layer hierarchy (Project → Functionality → Task → Technical Task).
 
 ### Phase 3: The Intelligence Layer. 
