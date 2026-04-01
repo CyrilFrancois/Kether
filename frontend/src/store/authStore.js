@@ -4,6 +4,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 /**
  * Auth Store (Zustand)
  * Role: Global State Management for Identity & Session Persistence.
+ * Fix: Added explicit localStorage syncing to prevent "Bearer undefined" race conditions.
  */
 const useAuthStore = create(
   persist(
@@ -12,58 +13,70 @@ const useAuthStore = create(
       token: null,
       user: null,
       isAuthenticated: false,
-      isInitialized: false, // Tracks if we've finished checking the local storage
 
       // --- Actions ---
 
       /**
-       * Primary Login Success Handler.
-       * Sets the JWT and the User object simultaneously.
+       * Primary Login/Register Success Handler.
+       * Fix: Validates token structure before saving to prevent JWT Decode errors.
        */
       login: (userData, accessToken) => {
+        // SAFETY CHECK: Ensure we aren't saving an object or undefined
+        const finalToken = typeof accessToken === 'object' ? accessToken?.access_token : accessToken;
+
+        if (!finalToken || typeof finalToken !== 'string') {
+          console.error("❌ AUTH: Invalid token received", accessToken);
+          return;
+        }
+
+        // We explicitly update localStorage as a backup for Axios interceptors
+        localStorage.setItem('kether_token', finalToken);
+
         set({
-          token: accessToken,
+          token: finalToken,
           user: userData,
           isAuthenticated: true,
         });
       },
 
-      /**
-       * Updates the User profile without touching the token.
-       * Useful for after email verification or profile updates.
-       */
       setUser: (user) => set({ user }),
 
       /**
-       * The 'Nuke' Option: Standard Logout logic.
-       * Clears everything from State and LocalStorage.
+       * Standard Logout logic.
        */
       logout: () => {
+        localStorage.removeItem('kether_token');
         set({
           token: null,
           user: null,
           isAuthenticated: false,
         });
-        // Optional: Add a redirect to '/' here if using window.location
       },
 
       /**
-       * Helper to check if a session is likely still valid.
+       * Helper to verify token health before making requests.
        */
       checkAuth: () => {
-        const { token, user } = get();
-        return !!(token && user);
+        const { token } = get();
+        // A valid JWT must have at least two dots (3 segments)
+        return !!(token && token.split('.').length === 3);
       }
     }),
     {
-      name: 'kether-identity-storage', // The key in browser LocalStorage
+      name: 'kether-identity-storage', 
       storage: createJSONStorage(() => localStorage),
-      // Only persist these fields (security best practice)
+      // Only persist the core data
       partialize: (state) => ({ 
         token: state.token, 
         user: state.user, 
         isAuthenticated: state.isAuthenticated 
       }),
+      // Fix: Ensure state is rehydrated correctly on page refresh
+      onRehydrateStorage: () => (state) => {
+        if (state?.token) {
+          localStorage.setItem('kether_token', state.token);
+        }
+      }
     }
   )
 );

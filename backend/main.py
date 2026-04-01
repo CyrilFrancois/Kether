@@ -4,13 +4,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import SQLModel
 
 # --- 1. CORE & MODEL IMPORTS ---
-# We import models here to ensure they are registered with SQLModel.metadata
-from core.database import init_db
+from core.database import init_db, engine
 from models.user import User
 from models.project import Project
-# Project imports sub-models (Functionality, Tasks), completing the schema registry
+# Note: Ensure these imports cover all sub-models (Tasks, etc.)
 
 from api import auth, projects
 
@@ -26,7 +26,8 @@ async def lifespan(app: FastAPI):
     print("="*50)
     
     try:
-        # init_db handles RESET_DB logic and create_all() internally
+        # Verify metadata is aware of all tables before init
+        # SQLModel.metadata.create_all(engine) is called inside init_db()
         init_db()
         print("✅ DATABASE: Schema synchronized and tables verified.")
     except Exception as e:
@@ -47,17 +48,17 @@ app = FastAPI(
 )
 
 # --- 4. MIDDLEWARE (CORS) ---
+# We use a broad CORS policy for development to ensure the Frontend (Port 3000)
+# can talk to the Backend (Port 8000) without browser blocks.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, replace with specific origins
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "Accept"], # Explicitly allowed
 )
 
 # --- 5. ROUTER REGISTRATION ---
-# Prefixing these ensures your Frontend knows exactly where to send requests.
-# Note: Ensure core/security.py -> tokenUrl="auth/login" matches this!
 app.include_router(auth.router, prefix="/auth", tags=["L0: Identity"])
 app.include_router(projects.router, prefix="/projects", tags=["L1-L4: Orchestration"])
 
@@ -65,7 +66,10 @@ app.include_router(projects.router, prefix="/projects", tags=["L1-L4: Orchestrat
 
 @app.get("/health")
 async def health_check():
-    """System heartbeat for Docker healthchecks."""
+    """
+    CRITICAL: Root heartbeat for Docker healthchecks.
+    Docker-compose should point to http://localhost:8000/health
+    """
     return {
         "status": "online",
         "timestamp": time.time(),
@@ -80,7 +84,7 @@ async def ai_status():
     return {
         "provider": "openai",
         "ready": bool(api_key),
-        "status": "Awaiting commands" if api_key else "API Key missing"
+        "status": "Awaiting commands" if api_key else "API Key missing (Check .env)"
     }
 
 @app.get("/")
@@ -95,5 +99,5 @@ async def root():
 # --- 7. DEV ENTRY POINT ---
 if __name__ == "__main__":
     import uvicorn
-    # reload=True is critical for development speed
+    # uvicorn.run uses the string import to enable 'reload'
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

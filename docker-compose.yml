@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: kether_db
     restart: always
     environment:
@@ -11,12 +11,13 @@ services:
       POSTGRES_DB: kether
     ports:
       - "5432:5432"
+    shm_size: 128mb
     volumes:
-      - kether_db_data:/var/lib/postgresql/data # Changed to named volume for better performance/reliability
+      - kether_db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d kether"]
-      interval: 5s
-      timeout: 5s
+      interval: 3s
+      timeout: 3s
       retries: 5
     networks:
       - kether_net
@@ -34,14 +35,21 @@ services:
       - DATABASE_URL=postgresql://postgres:${DB_PASSWORD:-kether_dev_pass}@db:5432/kether
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - RESET_DB=${RESET_DB:-false}
-      - PYTHONPATH=/app # Ensures the backend can see all sub-modules clearly
+      - PYTHONPATH=/app
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
       - ./agents:/app/agents
-      - ./foundry:/app/foundry # This is critical: AI-generated code will live here
-      - ./workspace_output:/app/workspace_output # New: A sandbox for the L4 Technical Task files
+      - ./foundry:/app/foundry
+      - ./workspace_output:/app/workspace_output
+    # --- FIX: Using native Python to avoid "wget not found" errors ---
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s 
     networks:
       - kether_net
 
@@ -51,7 +59,6 @@ services:
       dockerfile: Dockerfile
     container_name: kether_frontend
     restart: always
-    # Using 'dev' command to ensure HMR (Hot Module Replacement) works during development
     command: npm run dev -- --host 0.0.0.0
     ports:
       - "3000:3000"
@@ -59,9 +66,11 @@ services:
       - VITE_API_URL=http://localhost:8000
     volumes:
       - ./frontend:/app
-      - /app/node_modules # Prevents local node_modules from overriding container modules
+      - /app/node_modules 
+    # This condition is what holds the frontend back until the healthcheck above passes
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - kether_net
 
@@ -69,6 +78,5 @@ networks:
   kether_net:
     driver: bridge
 
-# Using a named volume for the DB is generally safer for schema updates
 volumes:
   kether_db_data:

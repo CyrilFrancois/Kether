@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
+import { BrowserRouter as Router } from 'react-router-dom'; // Added this
 import { User, LogOut, Settings as SettingsIcon, ChevronDown } from 'lucide-react';
 import Connection from './pages/Connection';
 import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
 import Foundry from './pages/Foundry';
-import Settings from './pages/Settings'; // Ensure you've created this file
+import Settings from './pages/Settings'; 
 import useAuthStore from './store/authStore';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
   const user = useAuthStore((state) => state.user);
-  const isAuthenticated = !!user;
+  const token = useAuthStore((state) => state.token);
+  
+  // Robust check: We are authenticated only if we have both a user and a token
+  const isAuthenticated = !!(user && token);
+  
   const { logout } = useAuth();
   
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -22,68 +27,70 @@ function App() {
     setShowAccountMenu(false);
   };
 
-  if (!isAuthenticated) {
-    return <Connection />;
-  }
-
   return (
-    <div className="kether-container">
-      <nav className="kether-nav">
-        <div className="nav-left">
-          <div className="logo" onClick={() => navigateTo('dashboard')} style={{cursor: 'pointer'}}>
-            👑 KETHER
-          </div>
-          <div className="nav-links">
-            <button onClick={() => navigateTo('dashboard')} className={currentPage === 'dashboard' ? 'active' : ''}>Overview</button>
-            <button onClick={() => navigateTo('workspace')} className={currentPage === 'workspace' ? 'active' : ''}>Workspace</button>
-            <button onClick={() => navigateTo('foundry')} className={currentPage === 'foundry' ? 'active' : ''}>Foundry</button>
-          </div>
-        </div>
-
-        <div className="nav-right">
-          <div className="account-wrapper">
-            <button 
-              className={`account-trigger ${showAccountMenu ? 'active' : ''}`}
-              onClick={() => setShowAccountMenu(!showAccountMenu)}
-            >
-              <div className="avatar-circle">
-                {user?.full_name?.charAt(0) || user?.email?.charAt(0)}
+    <Router> {/* This provides the context for useNavigate() in Connection and other pages */}
+      {!isAuthenticated ? (
+        <Connection />
+      ) : (
+        <div className="kether-container">
+          <nav className="kether-nav">
+            <div className="nav-left">
+              <div className="logo" onClick={() => navigateTo('dashboard')} style={{cursor: 'pointer'}}>
+                👑 KETHER
               </div>
-              <span className="user-name">{user?.full_name || 'Account'}</span>
-              <ChevronDown size={14} className={showAccountMenu ? 'rotate' : ''} />
-            </button>
+              <div className="nav-links">
+                <button onClick={() => navigateTo('dashboard')} className={currentPage === 'dashboard' ? 'active' : ''}>Overview</button>
+                <button onClick={() => navigateTo('workspace')} className={currentPage === 'workspace' ? 'active' : ''}>Workspace</button>
+                <button onClick={() => navigateTo('foundry')} className={currentPage === 'foundry' ? 'active' : ''}>Foundry</button>
+              </div>
+            </div>
 
-            {showAccountMenu && (
-              <>
-                <div className="menu-overlay" onClick={() => setShowAccountMenu(false)} />
-                <div className="account-dropdown">
-                  <div className="dropdown-user-info">
-                    <p className="info-name">{user?.full_name}</p>
-                    <p className="info-email">{user?.email}</p>
+            <div className="nav-right">
+              <div className="account-wrapper">
+                <button 
+                  className={`account-trigger ${showAccountMenu ? 'active' : ''}`}
+                  onClick={() => setShowAccountMenu(!showAccountMenu)}
+                >
+                  <div className="avatar-circle">
+                    {user?.full_name?.charAt(0) || user?.email?.charAt(0)}
                   </div>
-                  <div className="divider" />
-                  <button onClick={() => navigateTo('settings')} className="dropdown-item">
-                    <SettingsIcon size={16} /> Account Settings
-                  </button>
-                  <button onClick={logout} className="dropdown-item logout">
-                    <LogOut size={16} /> Disconnect
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+                  <span className="user-name">{user?.full_name || 'Account'}</span>
+                  <ChevronDown size={14} className={showAccountMenu ? 'rotate' : ''} />
+                </button>
+
+                {showAccountMenu && (
+                  <>
+                    <div className="menu-overlay" onClick={() => setShowAccountMenu(false)} />
+                    <div className="account-dropdown">
+                      <div className="dropdown-user-info">
+                        <p className="info-name">{user?.full_name}</p>
+                        <p className="info-email">{user?.email}</p>
+                      </div>
+                      <div className="divider" />
+                      <button onClick={() => navigateTo('settings')} className="dropdown-item">
+                        <SettingsIcon size={16} /> Account Settings
+                      </button>
+                      <button onClick={logout} className="dropdown-item logout">
+                        <LogOut size={16} /> Disconnect
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </nav>
+
+          <main className="content-area">
+            {currentPage === 'dashboard' && <Dashboard user={user} />}
+            {currentPage === 'workspace' && <Workspace user={user} />}
+            {currentPage === 'foundry' && <Foundry user={user} />}
+            {currentPage === 'settings' && <Settings user={user} />}
+          </main>
         </div>
-      </nav>
+      )}
 
-      <main className="content-area">
-        {currentPage === 'dashboard' && <Dashboard user={user} />}
-        {currentPage === 'workspace' && <Workspace user={user} />}
-        {currentPage === 'foundry' && <Foundry user={user} />}
-        {currentPage === 'settings' && <Settings user={user} />}
-      </main>
-
-      <style jsx>{`
-        .kether-container { display: flex; flex-direction: column; height: 100vh; background: #0d1117; color: #c9d1d9; }
+      <style>{`
+        .kether-container { display: flex; flex-direction: column; height: 100vh; background: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
         
         .kether-nav { 
           display: flex; 
@@ -108,7 +115,6 @@ function App() {
         .nav-links button.active { color: #fff; background: #21262d; }
         .nav-links button:hover { color: #fff; }
 
-        /* Account Trigger & Dropdown */
         .account-wrapper { position: relative; }
         
         .account-trigger {
@@ -156,7 +162,7 @@ function App() {
 
         .content-area { flex: 1; overflow-y: auto; background: #0d1117; }
       `}</style>
-    </div>
+    </Router>
   );
 }
 
