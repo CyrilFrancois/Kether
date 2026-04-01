@@ -1,18 +1,27 @@
 from typing import List, Optional
-from sqlalchemy import Column, String, Text, Float, Integer, ForeignKey
-from sqlalchemy.orm import relationship
+from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
 
-# --- LAYER 1: PROJECT (The North Star) ---
+# --- LAYER 1: PROJECT (The North Star / System Blueprint) ---
 class Project(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
-    description: Optional[str] = Field(default=None)
+    description: Optional[str] = None
     
-    # Technical DNA & UI Style
+    # Technical & UI DNA
     tech_stack: Optional[str] = Field(default="Python, React")
-    architecture_pattern: Optional[str] = Field(default="Monolith")
-    ui_template: Optional[str] = Field(default="Kether Dark")
+    repo_url: Optional[str] = None
+    ui_paradigm: Optional[str] = Field(default="Modern/Dark") # Glassmorphism, Material, etc.
+    io_schema: Optional[str] = Field(default="REST API")      # JSON, GraphQL, Webhooks
+    
+    # Management & Style
+    priority: str = Field(default="Medium") # Low, Medium, High
+    visibility: str = Field(default="Private") # Private, Team
+    color: str = Field(default="#3498db")
+    
+    # Metadata & Progress
+    progress: float = Field(default=0.0) # Calculated aggregate
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Identity Link
     user_id: int = Field(foreign_key="user.id")
@@ -23,12 +32,15 @@ class Project(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
-# --- LAYER 2: FUNCTIONALITY (The User Story) ---
+# --- LAYER 2: FUNCTIONALITY (The User Story / Epic) ---
 class Functionality(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    title: str # e.g., "User can register"
-    description: Optional[str] = None
-    priority: int = Field(default=1) # 1-3
+    title: str # e.g., "User Auth System"
+    user_story: Optional[str] = None # "As a [User], I want to..."
+    functional_spec: Optional[str] = None # Detailed markdown
+    
+    priority_level: str = Field(default="Should Have") # MoSCoW: Must, Should, Could, Won't
+    completion_pct: float = Field(default=0.0)
     
     project_id: int = Field(foreign_key="project.id")
     project: Project = Relationship(back_populates="functionalities")
@@ -38,13 +50,16 @@ class Functionality(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
-# --- LAYER 3: FUNCTIONAL TASK (The Logic Flow) ---
+# --- LAYER 3: FUNCTIONAL TASK (The Logic Flow / State) ---
 class FunctionalTask(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    task_name: str
-    logic_flow: Optional[str] = None # Trigger -> Logic -> Result
-    input_data: Optional[str] = None
-    output_data: Optional[str] = None
+    flow_name: str # e.g., "Login Success Flow"
+    
+    # State Logic
+    pre_conditions: Optional[str] = None # "User on /login"
+    post_conditions: Optional[str] = None # "JWT in LocalStorage"
+    input_contract: Optional[str] = None # JSON schema of inputs
+    output_contract: Optional[str] = None # JSON schema of outputs
     
     functionality_id: int = Field(foreign_key="functionality.id")
     functionality: Functionality = Relationship(back_populates="functional_tasks")
@@ -57,14 +72,21 @@ class FunctionalTask(SQLModel, table=True):
 # --- LAYER 4: TECHNICAL TASK (The Engineering Layer) ---
 class TechnicalTask(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    title: str
-    strategy: Optional[str] = None # How the AI should solve it
-    status: str = Field(default="todo") # todo, doing, validating, done
-    complexity: int = Field(default=1) # 1-10
-    completion_score: float = Field(default=0.0) # 0.0 to 100.0
+    title: str # e.g., "Implement JWT Middleware"
+    module_path: Optional[str] = None # e.g., "backend/auth/security.py"
+    
+    # Execution DNA
+    agent_type: str = Field(default="Backend") # Backend, Frontend, DevOps
+    strategy_prompt: Optional[str] = None # Specialized instructions for LLM
+    
+    # Metrics
+    status: str = Field(default="backlog") # backlog, in_progress, review, done
+    complexity: int = Field(default=3) # Fibonacci: 1, 2, 3, 5, 8, 13
+    risk_level: str = Field(default="Low")
     
     functional_task_id: int = Field(foreign_key="functionaltask.id")
     functional_task: FunctionalTask = Relationship(back_populates="technical_tasks")
     
-    # Atomic To-Dos for this specific technical task
-    todos: Optional[str] = Field(default="[]") # JSON string of minimal tasks
+    # Level 5: Atomic To-Dos
+    # Stored as a simple list of objects in JSON: [{"task": "...", "done": false}]
+    todo_items: Optional[str] = Field(default="[]")
