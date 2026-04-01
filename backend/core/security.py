@@ -6,9 +6,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
+from sqlmodel import Session, select  # <--- Changed to sqlmodel Session
 
-from core.database import get_db
+from core.database import get_session
 from models.user import User
 
 # 1. Configuration
@@ -18,7 +18,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
 # 2. Security Setup
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-# This tells FastAPI where to look for the token (the login URL)
+# Updated to match the typical router prefix /api/auth/login
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # --- PASSWORD HELPERS ---
@@ -37,17 +37,22 @@ def create_access_token(subject: Union[str, Any], expires_delta: Optional[timede
     else:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
-    to_encode = {"exp": expire, "sub": str(subject)}
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    # Ensure 'exp' is a UTC timestamp to avoid timezone/format mismatches
+    to_encode = {
+        "exp": expire, 
+        "sub": str(subject),
+        "iat": datetime.utcnow() # 'Issued At' - good for debugging
+    }
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
-# --- THE FIX: NEW DEPENDENCY FOR API ROUTES ---
+# --- THE SECURITY GUARD ---
 
-def get_current_user(
+async def get_current_user(
     token: str = Depends(oauth2_scheme), 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session) # <--- FIXED: name 'get_db' is now 'get_session'
 ) -> User:
     """
-    The 'Security Guard' dependency. 
     Decodes the token and returns the User object from the DB.
     """
     credentials_exception = HTTPException(
@@ -65,8 +70,9 @@ def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    # Find the user in the database
-    user = db.query(User).filter(User.email == email).first()
+    # SQLModel way to query by email
+    statement = select(User).where(User.email == email)
+    user = db.exec(statement).first()
     
     if user is None:
         raise credentials_exception

@@ -1,5 +1,6 @@
-from core.database import Base
-from models.user import User
-from models.project import Project  # <--- New import
+from sqlmodel import SQLModel
+from .user import User
+from .project import Project
 
-__all__ = ["Base", "User", "Project"]
+# We export SQLModel so other files can use it as the metadata source
+__all__ = ["SQLModel", "User", "Project"]

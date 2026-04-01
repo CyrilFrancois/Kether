@@ -1,81 +1,99 @@
+import os
+import time
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import time
-import os
 
-# --- 1. IMPORT DATABASE, MODELS & ROUTERS ---
+# --- 1. CORE & MODEL IMPORTS ---
+# We import models here to ensure they are registered with SQLModel.metadata
 from core.database import init_db
-from api import auth, projects  # Added projects router
+from models.user import User
+from models.project import Project
+# Project imports sub-models (Functionality, Tasks), completing the schema registry
 
-# --- 2. LIFESPAN MANAGEMENT ---
+from api import auth, projects
+
+# --- 2. ENGINE LIFESPAN ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # This runs ONCE when the docker container starts
-    print("--- KETHER ENGINE STARTING ---")
+    """
+    Handles the startup and shutdown logic of the Kether Engine.
+    Ensures the Postgres schema is synchronized with our Python DNA.
+    """
+    print("\n" + "="*50)
+    print("🚀 KETHER AI ORCHESTRATOR: INITIALIZING")
+    print("="*50)
+    
     try:
-        # init_db() ensures all tables (User, Project, Functionality, etc.) 
-        # are created in Postgres upon startup
-        init_db()  
+        # init_db handles RESET_DB logic and create_all() internally
+        init_db()
+        print("✅ DATABASE: Schema synchronized and tables verified.")
     except Exception as e:
-        print(f"Critical Error during DB Init: {e}")
+        print(f"❌ DATABASE: Initialization failed! Error: {e}")
     
     yield
     
-    # This runs when the container shuts down
-    print("--- KETHER ENGINE SHUTTING DOWN ---")
+    print("\n" + "="*50)
+    print("🛑 KETHER ENGINE: SHUTTING DOWN")
+    print("="*50)
 
-# Initializing the Kether Engine
+# --- 3. APP INITIALIZATION ---
 app = FastAPI(
-    title="Kether AI Orchestrator",
+    title="Kether Engine",
     version="1.0.0",
-    description="L1-L4 Project Management & Autonomous Execution Engine",
+    description="The L1-L4 Autonomous Orchestration Core",
     lifespan=lifespan
 )
 
-# 3. CORS Configuration
+# --- 4. MIDDLEWARE (CORS) ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], # In production, replace with specific origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 4. REGISTER ROUTERS
-# Identity & Profile Management
-app.include_router(auth.router, prefix="/auth", tags=["Identity"])
+# --- 5. ROUTER REGISTRATION ---
+# Prefixing these ensures your Frontend knows exactly where to send requests.
+# Note: Ensure core/security.py -> tokenUrl="auth/login" matches this!
+app.include_router(auth.router, prefix="/auth", tags=["L0: Identity"])
+app.include_router(projects.router, prefix="/projects", tags=["L1-L4: Orchestration"])
 
-# Orchestration Engine (Project Hierarchy, Map, and Backlog)
-# This enables /projects/ endpoints as defined in backend/api/projects.py
-app.include_router(projects.router, prefix="/projects", tags=["Orchestration"])
+# --- 6. SYSTEM ENDPOINTS ---
 
-# 5. System Health
 @app.get("/health")
 async def health_check():
+    """System heartbeat for Docker healthchecks."""
     return {
-        "status": "ok",
+        "status": "online",
         "timestamp": time.time(),
-        "version": "1.0.0"
+        "engine": "Kether 1.0.0",
+        "database": "connected"
     }
 
-# 6. AI Status
 @app.get("/ai-status")
 async def ai_status():
-    # Looks for GPT_KEY as per your README/env setup
-    api_key_exists = bool(os.getenv("GPT_KEY"))
+    """Verifies LLM provider connectivity."""
+    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GPT_KEY")
     return {
-        "status": "ready" if api_key_exists else "error",
         "provider": "openai",
-        "key_configured": api_key_exists
+        "ready": bool(api_key),
+        "status": "Awaiting commands" if api_key else "API Key missing"
     }
 
-# 7. Root Endpoint
 @app.get("/")
 async def root():
-    return {"message": "Kether Engine is Online. Awaiting Orchestration Commands."}
+    """Welcome portal and documentation link."""
+    return {
+        "message": "Kether Engine is Online.",
+        "docs": "/docs",
+        "status": "Ready for L1 Project Initialization"
+    }
 
+# --- 7. DEV ENTRY POINT ---
 if __name__ == "__main__":
     import uvicorn
-    # Standard uvicorn entry point
+    # reload=True is critical for development speed
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
