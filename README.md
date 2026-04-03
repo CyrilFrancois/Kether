@@ -92,6 +92,69 @@ The AI's laboratory.
 
 ---
 
+# 🏗️ Workspace Module: Functional & UX/UI Specification
+
+The **Workspace** is the primary interactive environment for managing the 5-layer project hierarchy. It serves as a visual Bridge between high-level intent and atomic execution.
+
+---
+
+## 🎨 Layout Architecture
+
+### 1. Project Menu (Left Sidebar)
+*   **Purpose:** Global navigation and project switching.
+*   **Features:**
+    *   **Project List:** Slim cards displaying `Project Name`, `Version`, and a `Health Status` indicator.
+    *   **Create Project:** A persistent action item at the top of the list.
+    *   **Active Indicator:** Visual highlight on the currently selected project.
+
+### 2. Main Body (The Canvas)
+*   **Purpose:** Graphical manipulation of the task hierarchy.
+*   **Display Modes:**
+    *   **Flower Mode (Centric):** The Project Card sits at the center. Functionalities and tasks radiate outward as nodes. Ideal for brainstorming and non-linear exploration.
+    *   **Tree Mode (Hierarchical):** The Project root is on the left. Layers flow horizontally to the right (Project → Functionality → Functional Task → Technical Task → ToDo). Ideal for logic auditing and progress tracking.
+
+### 3. The Smart Inspector (Right Sidebar / Popup)
+*   **Purpose:** Deep-dive into card attributes and AI interaction.
+*   **Universal Component:** A single "Smart Card" UI that adapts its fields based on the node type (Level 1–5).
+*   **AI Sidecar:** 
+    *   **Magic Wand Button:** One-click generation of sub-elements or field completion.
+    *   **Context Chat:** A focused chat interface to provide specific instructions to the LLM regarding that specific node.
+
+---
+
+## 🧬 The 5-Layer DNA Hierarchy
+
+### Level 1: The Project (Core DNA)
+*   **Mandatory:** Name.
+*   **Attributes:** System Prompt/Intent, Technical Stack (Languages/DB), UI/UX Paradigm, Repository URL.
+*   **Role:** The "Source of Truth" for all underlying AI generations.
+
+### Level 2: Functionality (User Value)
+*   **Attributes:** User Story (As a... I want to...), Functional Spec (Markdown), Priority (MoSCoW), Dependency Map.
+*   **Role:** Defines a high-level feature or capability.
+
+### Level 3: Functional Task (Logic Flow)
+*   **Attributes:** Flow Name, State Diagram (JSON), Input/Output Contract, Pre/Post-conditions.
+*   **Role:** Defines the behavioral logic and "states" of a feature.
+
+### Level 4: Technical Task (Implementation)
+*   **Attributes:** Module/File Path, Complexity (Fibonacci), Agent Type (Frontend/Backend), Review Status.
+*   **Role:** The actual work ticket for the AI Coding Agents.
+
+### Level 5: ToDo (Atomic Execution)
+*   **Attributes:** Task Description, Status, Assignee, Time Tracking.
+*   **Special Feature:** Can be a "Leaf" connected to any upper level (e.g., a direct link from Project to a ToDo for rapid execution).
+
+---
+
+## 🚀 Key Interaction Workflows
+
+1.  **AI Decomposition:** Users can click a "Decompose" button on a Functional Task to automatically generate the necessary Technical Tasks and ToDos.
+2.  **Contextual Chat:** If a user is unsure how to define a Technical Task, they use the internal popup chat to brainstorm with the AI, which then populates the form fields.
+3.  **Mode Toggling:** Users can switch between **Flower** and **Tree** views instantly to change their mental model of the project's complexity.
+
+---
+
 tree /f /a | findstr /v /i "node_modules .git __pycache__ kether_db_data pg_ base global 1 2 3 4 5 6000 replorigin_checkpoint mappings snapshots members offsets archive_status 0000" > project_structure.txt
 
 ## File Architecture
@@ -200,4 +263,28 @@ Implementing the Python sandbox where the "Toolsmith" agent can write, test, and
 
 ### Phase 5: Self-Evolution. 
 Training Kether to use its own Project Management tab to track its own bugs and feature requests.
+
+
+
+Let's write file one by one to create the Workspace tab to manage projects, here is the file to write: agents/prompts/decomposition.txt:
+
+🏗️ Frontend: Workspace Development Roadmap
+src/store/projectStore.js: Modify Zustand store to manage the 5-layer tree state, activeProject, and viewMode.
+src/hooks/useProjects.js: Modify hook for CRUD operations and AI "Generation" triggers via Axios.
+src/pages/Workspace.jsx: Modify to implement the tri-pane layout (Menu, Canvas, Inspector) and view toggling.
+src/components/workspace/ProjectMenu.jsx: Create sidebar component to list projects and trigger the "Create Project" flow.
+src/components/workspace/FlowerView.jsx: Create radial graph component using react-force-graph for Level 1-5 discovery.
+src/components/workspace/TreeView.jsx: Create horizontal DAG component for hierarchical logic and dependency mapping.
+src/components/workspace/ProjectMap.jsx: Modify to act as the wrapper/container for switching between Flower and Tree views.
+src/components/ui/UnifiedNodeModal.jsx: Create the "Master" modal that adapts its form fields based on the selected node level.
+src/components/ui/ModalChat.jsx: Create the AI sidecar component for real-time node context clarification and auto-filling.
+src/components/workspace/SmartInspector.jsx: Create the right-side slide-out panel for rapid attribute editing without modals.
+⚙️ Backend & AI: Supporting Infrastructure
+backend/models/project.py: Modify recursive SQLModel with parent_id and json_metadata for 5-layer storage.
+backend/api/projects.py: Modify endpoints for recursive tree fetching (/tree) and AI decomposition triggers (/ai-generate).
+agents/prompts/decomposition.txt: Create system prompt for the "Architect" agent to break Functional Tasks into Technical Tasks.
+backend/main.py: Modify to register the new projects router and initialize workspace-related middleware.
+
+
+Here is the current file to rewrite to include the modification:
 

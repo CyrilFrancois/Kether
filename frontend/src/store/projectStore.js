@@ -5,54 +5,88 @@ const useProjectStore = create(
   persist(
     (set, get) => ({
       // --- STATE ---
-      projects: [],              // List of all projects for the sidebar/dashboard
-      activeProject: null,       // The currently selected Project object
-      projectTree: null,         // Nested 4-layer data for the Map View
-      backlogTasks: [],          // Flattened TechnicalTasks for the Jira View
-      viewMode: 'map',           // Toggle state: 'map' or 'backlog'
+      projects: [],              // List of all Level 1 projects for the sidebar
+      activeProject: null,       // Currently selected Project (Level 1)
+      projectTree: null,         // Recursive 5-layer nested data for the Canvas
+      
+      // Workspace UI State
+      viewMode: 'tree',          // 'tree' (Horizontal DAG) or 'flower' (Radial)
+      isInspectorOpen: false,    // Toggle for the right-side slide-out panel
+      selectedNode: null,        // The specific node (Level 1-5) currently in focus
+      
       loading: false,
       error: null,
 
       // --- ACTIONS ---
 
-      // Set the active project and reset view-specific data
-      setActiveProject: (project) => set({ activeProject: project, error: null }),
+      // Project Management
+      setProjects: (projects) => set({ projects }),
+      
+      setActiveProject: (project) => set({ 
+        activeProject: project, 
+        projectTree: null, // Clear tree to trigger a fresh fetch for the new project
+        selectedNode: null,
+        isInspectorOpen: false,
+        error: null 
+      }),
 
-      // Toggle between Map and Backlog views
+      // Workspace UI Controls
       setViewMode: (mode) => set({ viewMode: mode }),
+      
+      setSelectedNode: (node) => set({ 
+        selectedNode: node, 
+        isInspectorOpen: !!node // Auto-open inspector if a node is selected
+      }),
+      
+      setInspectorOpen: (isOpen) => set({ 
+        isInspectorOpen: isOpen,
+        selectedNode: isOpen ? get().selectedNode : null // Clear node if closing
+      }),
 
-      // Sync the full recursive tree (from /projects/tree/{id})
-      setProjectTree: (tree) => set({ projectTree: tree }),
+      // Tree Synchronization
+      // Receives the full recursive 5-layer object from /api/projects/{id}/tree
+      setProjectTree: (tree) => set({ projectTree: tree, loading: false }),
 
-      // Sync the flattened backlog (from /projects/backlog/{id})
-      setBacklogTasks: (tasks) => set({ backlogTasks: tasks }),
+      // Optimistic Node Update
+      // Allows updating a single node deep in the tree without a full refresh
+      updateNodeLocally: (nodeId, updates) => {
+        const updateRecursive = (node) => {
+          if (node.id === nodeId) return { ...node, ...updates };
+          if (node.children) {
+            return { ...node, children: node.children.map(updateRecursive) };
+          }
+          return node;
+        };
 
-      // Update a single task locally (optimistic UI update)
-      updateTaskLocally: (taskId, updates) => {
-        const currentBacklog = get().backlogTasks;
-        const updatedBacklog = currentBacklog.map((task) =>
-          task.id === taskId ? { ...task, ...updates } : task
-        );
-        set({ backlogTasks: updatedBacklog });
+        const currentTree = get().projectTree;
+        if (currentTree) {
+          set({ projectTree: updateRecursive(currentTree) });
+        }
       },
 
-      // Error handling
-      setError: (error) => set({ error }),
+      // Utility Actions
       setLoading: (isLoading) => set({ loading: isLoading }),
+      setError: (error) => set({ error, loading: false }),
 
-      // Clear everything (useful on logout)
+      // Reset on Logout
       resetProjectStore: () => set({
         projects: [],
         activeProject: null,
         projectTree: null,
-        backlogTasks: [],
-        viewMode: 'map',
-        error: null
+        selectedNode: null,
+        viewMode: 'tree',
+        isInspectorOpen: false,
+        error: null,
+        loading: false
       })
     }),
     {
-      name: 'kether-project-storage', // Persist active project ID in localStorage
-      partialize: (state) => ({ activeProject: state.activeProject, viewMode: state.viewMode }),
+      name: 'kether-workspace-storage',
+      // We persist activeProject and viewMode so the user returns exactly where they left off
+      partialize: (state) => ({ 
+        activeProject: state.activeProject, 
+        viewMode: state.viewMode 
+      }),
     }
   )
 );

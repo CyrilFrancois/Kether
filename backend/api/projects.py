@@ -1,95 +1,126 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlmodel import Session, select
-from typing import List
+from typing import List, Optional
+from sqlalchemy.orm import selectinload
 
-# --- CRITICAL: MATCHING THE NEW DATABASE.PY ---
 from core.database import get_session 
 from core.security import get_current_user
 from models.user import User
-from models.project import Project
+from models.project import ProjectNode, NodeCreate, NodeUpdate, NodeTreeRead, NodeRead
 
 router = APIRouter()
 
-# --- 1. LIST ALL PROJECTS ---
-@router.get("", response_model=List[Project])
-async def list_projects(
+# --- 1. LIST ROOT PROJECTS (Level 1 Only) ---
+@router.get("", response_model=List[NodeRead])
+async def list_root_projects(
     current_user: User = Depends(get_current_user), 
-    db: Session = Depends(get_session) # Updated to get_session
+    db: Session = Depends(get_session)
 ):
-    statement = select(Project).where(Project.user_id == current_user.id)
+    # Only fetch level 1 nodes belonging to the user
+    statement = select(ProjectNode).where(
+        ProjectNode.user_id == current_user.id,
+        ProjectNode.level == 1
+    )
     results = db.exec(statement)
     return results.all()
 
-# --- 2. CREATE PROJECT ---
-@router.post("", response_model=Project)
-async def create_project(
-    project_in: Project, 
+# --- 2. CREATE A NODE (Manual) ---
+@router.post("", response_model=NodeRead)
+async def create_node(
+    node_in: NodeCreate, 
     current_user: User = Depends(get_current_user), 
-    db: Session = Depends(get_session) # Updated to get_session
+    db: Session = Depends(get_session)
 ):
-    # Ensure ownership
-    project_in.user_id = current_user.id
-    
-    db.add(project_in)
+    new_node = ProjectNode(
+        **node_in.model_dump(),
+        user_id=current_user.id
+    )
+    db.add(new_node)
     db.commit()
-    db.refresh(project_in)
-    return project_in
+    db.refresh(new_node)
+    return new_node
 
-# --- 3. GET TREE (Project Map View) ---
-@router.get("/tree/{project_id}")
+# --- 3. GET FULL RECURSIVE TREE ---
+@router.get("/tree/{project_id}", response_model=NodeTreeRead)
 async def get_project_tree(
     project_id: int, 
     current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_session)
 ):
-    # Use db.get to find the record
-    project = db.get(Project, project_id)
+    # We use selectinload to recursively fetch children in one/two queries 
+    # rather than N+1 queries.
+    statement = select(ProjectNode).where(
+        ProjectNode.id == project_id,
+        ProjectNode.user_id == current_user.id
+    ).options(selectinload(ProjectNode.children))
     
-    if not project or project.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Project not found")
+    result = db.exec(statement).first()
     
-    # Returning the object directly works IF relationships are configured 
-    # with sa_relationship_kwargs={"lazy": "selectin"} in your models.
-    # If not, this JSON might only show the L1 project details.
-    return project
+    if not result:
+        raise HTTPException(status_code=404, detail="Project node not found")
+    
+    return result
 
-# --- 4. GET BACKLOG (Flattened View) ---
-@router.get("/backlog/{project_id}")
-async def get_project_backlog(
-    project_id: int, 
-    current_user: User = Depends(get_current_user), 
+# --- 4. UPDATE NODE (Smart Inspector Sync) ---
+@router.patch("/{node_id}", response_model=NodeRead)
+async def update_node(
+    node_id: int,
+    node_update: NodeUpdate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session)
 ):
-    project = db.get(Project, project_id)
-    if not project or project.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    backlog = []
-    # Nested loops to flatten the L1-L4 hierarchy
-    for functionality in project.functionalities:
-        for f_task in functionality.functional_tasks:
-            for t_task in f_task.technical_tasks:
-                # Use model_dump for Pydantic v2 / SQLModel compatibility
-                task_data = t_task.model_dump() 
-                
-                # Enrich with parent context for the Frontend "Jira" view
-                task_data["parent_functionality"] = functionality.title
-                task_data["parent_logic_flow"] = f_task.task_name
-                backlog.append(task_data)
-                
-    return backlog
-
-# --- 5. DELETE PROJECT ---
-@router.delete("/{project_id}")
-async def delete_project(
-    project_id: int, 
-    current_user: User = Depends(get_current_user), 
-    db: Session = Depends(get_session)
-):
-    project = db.get(Project, project_id)
-    if not project or project.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Project not found")
+    db_node = db.get(ProjectNode, node_id)
+    if not db_node or db_node.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Node not found")
     
-    db.delete(project)
+    update_data = node_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_node, key, value)
+    
+    db.add(db_node)
     db.commit()
-    return {"message": "Project and all associated hierarchy purged."}
+    db.refresh(db_node)
+    return db_node
+
+# --- 5. AI DECOMPOSITION (The Architect Trigger) ---
+@router.post("/{node_id}/ai-generate")
+async def ai_generate_subnodes(
+    node_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session)
+):
+    """
+    Triggers the Architect Agent to analyze a node (e.g., L2 Functionality)
+    and generate child nodes (e.g., L3 Logic Flows).
+    """
+    parent_node = db.get(ProjectNode, node_id)
+    if not parent_node or parent_node.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Parent node not found")
+
+    if parent_node.level >= 5:
+        raise HTTPException(status_code=400, detail="Cannot decompose Level 5 nodes.")
+
+    # NOTE: In a real implementation, you'd call your LLM service here
+    # and pass the parent_node.description + parent_node.metadata.
+    # For now, we simulate the 'Architect' response.
+    
+    # generated_children = architect_agent.decompose(parent_node)
+    # for child in generated_children:
+    #     db.add(ProjectNode(**child, parent_id=node_id, user_id=current_user.id))
+    
+    return {"status": "processing", "message": f"Architect is decomposing node {node_id}..."}
+
+# --- 6. DELETE NODE (Recursive Cascade) ---
+@router.delete("/{node_id}")
+async def delete_node(
+    node_id: int, 
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_session)
+):
+    node = db.get(ProjectNode, node_id)
+    if not node or node.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Node not found")
+    
+    db.delete(node) # Cascade delete handled by SQLModel Relationship
+    db.commit()
+    return {"message": "Node and all descendants purged successfully."}

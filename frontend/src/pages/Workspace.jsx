@@ -1,148 +1,213 @@
 import React, { useEffect } from 'react';
-import { GitGraph, List, Plus, LayoutPanelLeft, Loader2, AlertCircle } from 'lucide-react';
+import { 
+  GitGraph, 
+  Plus, 
+  LayoutPanelLeft, 
+  Loader2, 
+  AlertCircle, 
+  Network, 
+  ChevronRight,
+  ChevronLeft
+} from 'lucide-react';
 import useProjectStore from '../store/projectStore';
 import { useProjects } from '../hooks/useProjects';
 
-// Components we will create in the next steps
+// Workspace Components
+import ProjectMenu from '../components/workspace/ProjectMenu';
 import ProjectMap from '../components/workspace/ProjectMap';
-import BacklogView from '../components/workspace/BacklogView';
+import SmartInspector from '../components/workspace/SmartInspector';
 
 const Workspace = () => {
-  const { activeProject, viewMode, setViewMode, loading, error } = useProjectStore();
-  const { fetchProjectDetails } = useProjects();
+  const { 
+    activeProject, 
+    viewMode, 
+    setViewMode, 
+    loading, 
+    error,
+    isInspectorOpen,
+    setInspectorOpen
+  } = useProjectStore();
+  
+  const { fetchProjectTree } = useProjects();
 
-  // Sync data whenever the active project or view changes
+  // Sync the recursive 5-layer tree whenever the project changes
   useEffect(() => {
     if (activeProject?.id) {
-      fetchProjectDetails(activeProject.id);
+      fetchProjectTree(activeProject.id);
     }
   }, [activeProject?.id]);
 
   if (!activeProject) {
     return (
       <div className="empty-workspace">
-        <LayoutPanelLeft size={48} className="icon-subtle" />
-        <h2>No Active Mission</h2>
-        <p>Select a project from the Dashboard to begin orchestration.</p>
-        <button className="btn-primary"><Plus size={18} /> New Project</button>
+        <LayoutPanelLeft size={64} className="icon-subtle" />
+        <h2>Orchestration Chamber Offline</h2>
+        <p>Select a project from the sidebar or dashboard to begin decomposition.</p>
+        <div className="empty-actions">
+           {/* This triggers the same logic as the sidebar Create button */}
+           <button className="btn-primary"><Plus size={18} /> Initialize New DNA</button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="workspace-container">
-      {/* --- WORKSPACE TOOLBAR --- */}
-      <header className="workspace-toolbar">
-        <div className="toolbar-left">
-          <div className="project-badge">
-            <span className="dot pulse"></span>
-            <h1>{activeProject.name}</h1>
+    <div className="workspace-layout">
+      {/* --- LEFT SIDEBAR: PROJECT NAVIGATOR --- */}
+      <aside className="workspace-sidebar">
+        <ProjectMenu />
+      </aside>
+
+      {/* --- CENTER: THE MAIN ORCHESTRATOR --- */}
+      <section className="workspace-main">
+        <header className="workspace-toolbar">
+          <div className="toolbar-left">
+            <div className="project-badge">
+              <span className="status-indicator online"></span>
+              <h1>{activeProject.name}</h1>
+            </div>
+            <div className="tech-pills">
+              {activeProject.tech_stack?.split(',').map(tech => (
+                <span key={tech} className="pill">{tech.trim()}</span>
+              ))}
+            </div>
           </div>
-          <span className="stack-label">{activeProject.tech_stack}</span>
-        </div>
 
-        <div className="view-switcher">
-          <button 
-            className={viewMode === 'map' ? 'active' : ''} 
-            onClick={() => setViewMode('map')}
-          >
-            <GitGraph size={16} /> Architecture Map
-          </button>
-          <button 
-            className={viewMode === 'backlog' ? 'active' : ''} 
-            onClick={() => setViewMode('backlog')}
-          >
-            <List size={16} /> Backlog Factory
-          </button>
-        </div>
-      </header>
-
-      {/* --- ERROR & LOADING STATES --- */}
-      {error && (
-        <div className="error-banner">
-          <AlertCircle size={16} /> {error}
-        </div>
-      )}
-
-      {/* --- DYNAMIC VIEWPORT --- */}
-      <main className="workspace-viewport">
-        {loading ? (
-          <div className="loading-overlay">
-            <Loader2 className="animate-spin" size={32} />
-            <p>Syncing Kether Core...</p>
+          <div className="view-switcher">
+            <button 
+              className={viewMode === 'tree' ? 'active' : ''} 
+              onClick={() => setViewMode('tree')}
+              title="Hierarchical Tree View"
+            >
+              <GitGraph size={16} /> Tree
+            </button>
+            <button 
+              className={viewMode === 'flower' ? 'active' : ''} 
+              onClick={() => setViewMode('flower')}
+              title="Radial Discovery View"
+            >
+              <Network size={16} /> Flower
+            </button>
           </div>
-        ) : (
-          <>
-            {viewMode === 'map' ? <ProjectMap /> : <BacklogView />}
-          </>
+
+          <button 
+            className={`inspector-toggle ${isInspectorOpen ? 'open' : ''}`}
+            onClick={() => setInspectorOpen(!isInspectorOpen)}
+          >
+            {isInspectorOpen ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+          </button>
+        </header>
+
+        {error && (
+          <div className="error-banner">
+            <AlertCircle size={16} /> {error}
+          </div>
         )}
-      </main>
+
+        <div className="workspace-canvas-area">
+          {loading ? (
+            <div className="loading-overlay">
+              <Loader2 className="animate-spin" size={40} />
+              <p>Reconstructing Project Geometry...</p>
+            </div>
+          ) : (
+            <ProjectMap />
+          )}
+        </div>
+      </section>
+
+      {/* --- RIGHT SIDEBAR: SMART INSPECTOR --- */}
+      <aside className={`workspace-inspector ${isInspectorOpen ? 'visible' : 'hidden'}`}>
+        <SmartInspector />
+      </aside>
 
       <style jsx>{`
-        .workspace-container {
+        .workspace-layout {
+          display: grid;
+          grid-template-columns: 260px 1fr auto;
+          height: calc(100vh - 64px); /* Adjust based on your Navbar height */
+          background: #0d1117;
+          overflow: hidden;
+        }
+
+        .workspace-sidebar {
+          border-right: 1px solid #30363d;
+          background: #161b22;
+          overflow-y: auto;
+        }
+
+        .workspace-main {
           display: flex;
           flex-direction: column;
-          height: 100%;
-          gap: 20px;
+          position: relative;
+          background: radial-gradient(circle at center, #161b22 0%, #0d1117 100%);
         }
 
         .workspace-toolbar {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 10px 0;
+          padding: 12px 20px;
+          background: rgba(22, 27, 34, 0.8);
+          backdrop-filter: blur(10px);
           border-bottom: 1px solid #30363d;
+          z-index: 10;
         }
 
-        .toolbar-left { display: flex; align-items: center; gap: 15px; }
+        .project-badge { display: flex; align-items: center; gap: 12px; }
+        .project-badge h1 { font-size: 1.1rem; color: #f0f6fc; margin: 0; font-weight: 600; }
         
-        .project-badge { 
+        .status-indicator { width: 10px; height: 10px; border-radius: 50%; }
+        .online { background: #238636; box-shadow: 0 0 8px #238636; }
+
+        .tech-pills { display: flex; gap: 6px; margin-left: 15px; }
+        .pill { font-size: 0.65rem; color: #58a6ff; border: 1px solid rgba(88, 166, 255, 0.3); padding: 2px 8px; border-radius: 10px; text-transform: uppercase; }
+
+        .view-switcher { 
           display: flex; 
-          align-items: center; 
-          gap: 10px; 
-          background: #161b22; 
-          padding: 5px 15px; 
-          border-radius: 20px;
-          border: 1px solid #30363d;
+          background: #010409; 
+          padding: 3px; 
+          border-radius: 8px; 
+          border: 1px solid #30363d; 
         }
-
-        .project-badge h1 { font-size: 1rem; margin: 0; color: #fff; }
-        .stack-label { font-size: 0.7rem; color: #8b949e; background: #0d1117; padding: 2px 8px; border-radius: 4px; border: 1px solid #30363d; }
-
-        .dot { width: 8px; height: 8px; border-radius: 50%; background: #238636; }
-        .pulse { animation: pulse-green 2s infinite; }
-
-        @keyframes pulse-green {
-          0% { box-shadow: 0 0 0 0 rgba(35, 134, 54, 0.7); }
-          70% { box-shadow: 0 0 0 10px rgba(35, 134, 54, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(35, 134, 54, 0); }
-        }
-
-        /* View Switcher */
-        .view-switcher { display: flex; background: #0d1117; padding: 4px; border-radius: 8px; border: 1px solid #30363d; }
         .view-switcher button {
-          display: flex; align-items: center; gap: 8px;
+          display: flex; align-items: center; gap: 6px;
           background: none; border: none; color: #8b949e;
-          padding: 6px 16px; font-size: 0.85rem; cursor: pointer;
-          border-radius: 6px; transition: 0.2s;
+          padding: 6px 14px; font-size: 0.8rem; cursor: pointer;
+          border-radius: 6px; transition: all 0.2s;
         }
-        .view-switcher button.active { background: #21262d; color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        .view-switcher button.active { background: #21262d; color: #58a6ff; }
 
-        .workspace-viewport { flex: 1; position: relative; overflow: hidden; }
+        .inspector-toggle {
+          background: none; border: none; color: #8b949e; cursor: pointer;
+          padding: 5px; border-radius: 5px; transition: 0.2s;
+        }
+        .inspector-toggle:hover { color: #fff; background: #30363d; }
 
-        .loading-overlay { 
-          display: flex; flex-direction: column; align-items: center; justify-content: center; 
-          height: 100%; color: #8b949e; gap: 15px;
+        .workspace-canvas-area { flex: 1; position: relative; }
+
+        .workspace-inspector {
+          width: 380px;
+          border-left: 1px solid #30363d;
+          background: #161b22;
+          transition: transform 0.3s ease;
+        }
+        .workspace-inspector.hidden { width: 0; border: none; overflow: hidden; }
+
+        .loading-overlay {
+          position: absolute; inset: 0; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; background: rgba(13, 17, 23, 0.8);
+          color: #58a6ff; gap: 20px; z-index: 5;
         }
 
         .empty-workspace {
           display: flex; flex-direction: column; align-items: center; justify-content: center;
-          height: 80vh; text-align: center; color: #8b949e;
+          height: 100%; text-align: center; background: #0d1117; color: #8b949e;
         }
-        .icon-subtle { opacity: 0.2; margin-bottom: 20px; }
+        .icon-subtle { opacity: 0.1; margin-bottom: 24px; }
         .btn-primary { 
-          margin-top: 20px; background: #238636; color: white; border: none; 
-          padding: 10px 24px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+          background: #238636; color: #fff; border: none; padding: 12px 24px;
+          border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px;
         }
       `}</style>
     </div>

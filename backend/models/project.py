@@ -1,95 +1,74 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 
-# --- LAYER 1: PROJECT (The North Star / System Blueprint) ---
-class Project(SQLModel, table=True):
-    __tablename__: str = "projects" # Explicitly naming for clarity
+# --- THE RECURSIVE NODE (Layers 1-5) ---
+class ProjectNode(SQLModel, table=True):
+    """
+    A unified recursive model representing any entity in the project hierarchy:
+    Level 1: Project (DNA)
+    Level 2: Functionality (User Story)
+    Level 3: Logic Flow (Functional Task)
+    Level 4: Technical Unit (Technical Task)
+    Level 5: Actionable ToDo (Atomic)
+    """
+    __tablename__: str = "project_nodes"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
     description: Optional[str] = None
+    level: int = Field(default=1, index=True) # 1 through 5
+    status: str = Field(default="todo") # todo, in_progress, done, archived
     
-    # Technical & UI DNA
-    tech_stack: Optional[str] = Field(default="Python, React")
-    repo_url: Optional[str] = None
-    ui_paradigm: Optional[str] = Field(default="Modern/Dark") 
-    io_schema: Optional[str] = Field(default="REST API")      
+    # --- HIERARCHY ---
+    parent_id: Optional[int] = Field(default=None, foreign_key="project_nodes.id")
     
-    # Management & Style
-    priority: str = Field(default="Medium") 
-    visibility: str = Field(default="Private") 
-    color: str = Field(default="#3498db")
-    
-    # Metrics & Progress
-    progress: float = Field(default=0.0) 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    # Identity Link (Points to plural 'users' table)
+    # Self-referential relationship for the recursive tree
+    children: List["ProjectNode"] = Relationship(
+        back_populates="parent",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "remote_side": "ProjectNode.id"
+        }
+    )
+    parent: Optional["ProjectNode"] = Relationship(back_populates="children")
+
+    # --- OWNERSHIP ---
     user_id: int = Field(foreign_key="users.id")
     
-    # Relationships
-    # Uses string "User" to avoid circular import crashes
-    owner: "User" = Relationship(back_populates="projects")
+    # --- DYNAMIC DATA ---
+    # Stores layer-specific attributes (tech_stack, complexity, etc.)
+    metadata: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     
-    functionalities: List["Functionality"] = Relationship(
-        back_populates="project", 
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
-    )
+    # --- TIMEKEEPING ---
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-# --- LAYER 2: FUNCTIONALITY (The User Story / Epic) ---
-class Functionality(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    title: str 
-    user_story: Optional[str] = None 
-    functional_spec: Optional[str] = None 
-    
-    priority_level: str = Field(default="Should Have") 
-    completion_pct: float = Field(default=0.0)
-    
-    project_id: int = Field(foreign_key="projects.id") # Matched to __tablename__
-    project: Project = Relationship(back_populates="functionalities")
-    
-    functional_tasks: List["FunctionalTask"] = Relationship(
-        back_populates="functionality",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
-    )
+# --- SCHEMAS FOR API (Pydantic-only) ---
 
-# --- LAYER 3: FUNCTIONAL TASK (The Logic Flow / State) ---
-class FunctionalTask(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    flow_name: str 
-    
-    pre_conditions: Optional[str] = None 
-    post_conditions: Optional[str] = None 
-    input_contract: Optional[str] = None 
-    output_contract: Optional[str] = None 
-    
-    functionality_id: int = Field(foreign_key="functionality.id")
-    functionality: "Functionality" = Relationship(back_populates="functional_tasks")
-    
-    technical_tasks: List["TechnicalTask"] = Relationship(
-        back_populates="functional_task",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
-    )
+class NodeCreate(SQLModel):
+    name: str
+    description: Optional[str] = None
+    level: int
+    parent_id: Optional[int] = None
+    metadata: Dict[str, Any] = {}
 
-# --- LAYER 4: TECHNICAL TASK (The Engineering Layer) ---
-class TechnicalTask(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    title: str 
-    module_path: Optional[str] = None 
-    
-    # Execution DNA
-    agent_type: str = Field(default="Backend") 
-    strategy_prompt: Optional[str] = None 
-    
-    # Metrics
-    status: str = Field(default="backlog") 
-    complexity: int = Field(default=3) 
-    risk_level: str = Field(default="Low")
-    
-    functional_task_id: int = Field(foreign_key="functionaltask.id")
-    functional_task: "FunctionalTask" = Relationship(back_populates="technical_tasks")
-    
-    # Level 5: Atomic To-Dos (Stored as JSON string)
-    todo_items: Optional[str] = Field(default="[]")
+class NodeUpdate(SQLModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+class NodeRead(SQLModel):
+    id: int
+    name: str
+    description: Optional[str]
+    level: int
+    status: str
+    parent_id: Optional[int]
+    metadata: Dict[str, Any]
+    created_at: datetime
+
+class NodeTreeRead(NodeRead):
+    """Recursive schema for the 5-layer tree fetch"""
+    children: List["NodeTreeRead"] = []

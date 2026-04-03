@@ -6,12 +6,12 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlmodel import SQLModel
 
 # --- 1. CORE & MODEL IMPORTS ---
-from core.database import init_db, engine
+from core.database import init_db
 from models.user import User
-from models.project import Project
+# Updated import to reflect the new recursive model
+from models.project import ProjectNode 
 from api import auth, projects
 
 # --- 2. ENGINE LIFESPAN ---
@@ -22,8 +22,9 @@ async def lifespan(app: FastAPI):
     print("="*50)
     
     try:
+        # This synchronizes the ProjectNode table into the DB
         init_db()
-        print("✅ DATABASE: Schema synchronized and tables verified.")
+        print("✅ DATABASE: 5-Layer Recursive Schema synchronized.")
     except Exception as e:
         print(f"❌ DATABASE: Initialization failed! Error: {e}")
     
@@ -36,26 +37,33 @@ async def lifespan(app: FastAPI):
 # --- 3. APP INITIALIZATION ---
 app = FastAPI(
     title="Kether Engine",
-    version="1.0.0",
-    description="The L1-L4 Autonomous Orchestration Core",
+    version="1.1.0",
+    description="The L1-L5 Recursive Orchestration Core",
     lifespan=lifespan
 )
 
-# --- 4. EXCEPTION HANDLERS (The Diagnostic Tool) ---
+# --- 4. DIAGNOSTIC MIDDLEWARE ---
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    """
+    Tracks execution time. Critical for monitoring AI 'Decomposition' 
+    latency and deep recursive tree fetches.
+    """
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
+
+# --- 5. EXCEPTION HANDLERS ---
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """
-    This is the "Truth Logger". It catches the 422 error 
-    and prints the EXACT field mismatch to the terminal.
-    """
     errors = exc.errors()
     print("\n" + "!"*50)
-    print("❌ VALIDATION ERROR DETECTED")
+    print("❌ SCHEMA MISMATCH: Validation Error")
     for error in errors:
-        location = error.get("loc")
-        message = error.get("msg")
-        print(f"   - FIELD: {location}")
-        print(f"   - REASON: {message}")
+        print(f"   - FIELD: {error.get('loc')}")
+        print(f"   - MSG: {error.get('msg')}")
     print("!"*50 + "\n")
     
     return JSONResponse(
@@ -63,7 +71,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={"detail": errors}
     )
 
-# --- 5. MIDDLEWARE (CORS) ---
+# --- 6. MIDDLEWARE (CORS) ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -72,37 +80,41 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
-# --- 6. ROUTER REGISTRATION ---
+# --- 7. ROUTER REGISTRATION ---
 app.include_router(auth.router, prefix="/auth", tags=["L0: Identity"])
-app.include_router(projects.router, prefix="/projects", tags=["L1-L4: Orchestration"])
+# This now points to the recursive node endpoints
+app.include_router(projects.router, prefix="/projects", tags=["L1-L5: Orchestration"])
 
-# --- 7. SYSTEM ENDPOINTS ---
+# --- 8. SYSTEM ENDPOINTS ---
 
 @app.get("/health")
 async def health_check():
     return {
         "status": "online",
-        "timestamp": time.time(),
-        "engine": "Kether 1.0.0",
+        "engine": "Kether 1.1.0",
+        "layers": "L1-L5 Recursive",
         "database": "connected"
     }
 
 @app.get("/ai-status")
 async def ai_status():
+    # Supports both standard and internal key naming conventions
     api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GPT_KEY")
     return {
         "provider": "openai",
         "ready": bool(api_key),
-        "status": "Awaiting commands" if api_key else "API Key missing"
+        "architect_agent": "ready" if api_key else "missing_credentials"
     }
 
 @app.get("/")
 async def root():
     return {
-        "message": "Kether Engine is Online.",
-        "docs": "/docs"
+        "message": "Kether Engine: Orchestration Core is Online.",
+        "docs": "/docs",
+        "architecture": "Recursive Node Tree"
     }
 
 if __name__ == "__main__":
     import uvicorn
+    # Use reload=True for development to catch model changes
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

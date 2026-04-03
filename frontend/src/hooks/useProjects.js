@@ -1,108 +1,119 @@
 import useProjectStore from '../store/projectStore';
 import useAuthStore from '../store/authStore';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export const useProjects = () => {
   const token = useAuthStore((state) => state.token);
   const { 
+    setProjects,
     setProjectTree, 
-    setBacklogTasks, 
     setLoading, 
     setError, 
-    updateTaskLocally 
+    updateNodeLocally 
   } = useProjectStore();
 
-  // --- 1. FETCH FULL PROJECT DATA ---
-  // We fetch both views to keep the Workspace toggle seamless
-  const fetchProjectDetails = async (projectId) => {
-    if (!projectId) return;
+  // Helper for authenticated headers
+  const getAuthHeaders = () => ({
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+
+  // --- 1. FETCH ALL PROJECTS (LEVEL 1) ---
+  const fetchAllProjects = async () => {
     setLoading(true);
     try {
-      const headers = { 'Authorization': `Bearer ${token}` };
-
-      // Parallel fetching for performance
-      const [treeRes, backlogRes] = await Promise.all([
-        fetch(`/api/projects/tree/${projectId}`, { headers }),
-        fetch(`/api/projects/backlog/${projectId}`, { headers })
-      ]);
-
-      if (!treeRes.ok || !backlogRes.ok) throw new Error("Failed to sync Kether data.");
-
-      const treeData = await treeRes.json();
-      const backlogData = await backlogRes.json();
-
-      setProjectTree(treeData);
-      setBacklogTasks(backlogData);
+      const res = await axios.get(`${API_URL}/api/projects/`, getAuthHeaders());
+      setProjects(res.data);
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.detail || "Failed to fetch projects");
     } finally {
       setLoading(false);
     }
   };
 
-  // --- 2. CREATE NEW PROJECT ---
-  const createProject = async (projectData) => {
+  // --- 2. FETCH FULL RECURSIVE TREE ---
+  const fetchProjectTree = async (projectId) => {
+    if (!projectId) return;
     setLoading(true);
     try {
-      const response = await fetch('/api/projects/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(projectData)
-      });
-
-      if (!response.ok) throw new Error("Could not initialize Project in core.");
-      return await response.json();
+      const res = await axios.get(`${API_URL}/api/projects/${projectId}/tree`, getAuthHeaders());
+      setProjectTree(res.data);
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.detail || "Failed to sync Workspace tree.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- 3. CREATE/ADD NODE (Any Level 1-5) ---
+  const addNode = async (nodeData) => {
+    setLoading(true);
+    try {
+      const res = await axios.post(`${API_URL}/api/projects/nodes`, nodeData, getAuthHeaders());
+      // Re-fetch tree to ensure all connections and IDs are correct
+      if (nodeData.parentId || nodeData.projectId) {
+        await fetchProjectTree(nodeData.projectId || nodeData.parentId);
+      }
+      return res.data;
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not create node.");
       return null;
     } finally {
       setLoading(false);
     }
   };
 
-  // --- 3. UPDATE TASK STATUS ---
-  // Useful for the Backlog view "Status" dropdown
-  const updateTaskStatus = async (taskId, newStatus) => {
-    // Optimistic Update: Change UI immediately
-    updateTaskLocally(taskId, { status: newStatus });
-
+  // --- 4. AI DECOMPOSITION (The Magic Wand) ---
+  // Tells the AI to generate the next level of children for a specific node
+  const decomposeNode = async (nodeId) => {
+    setLoading(true);
     try {
-      const response = await fetch(`/api/projects/tasks/${taskId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
-
-      if (!response.ok) throw new Error("Status sync failed.");
+      const res = await axios.post(`${API_URL}/api/projects/nodes/${nodeId}/decompose`, {}, getAuthHeaders());
+      
+      // Update tree with newly generated children
+      // The backend returns the updated node with its new children
+      updateNodeLocally(nodeId, { children: res.data.children });
+      
+      return res.data;
     } catch (err) {
-      console.error("Task update error:", err);
-      // Optional: Rollback logic if server fails
+      setError(err.response?.data?.detail || "AI decomposition failed.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // --- 4. DELETE PROJECT (CASCADE) ---
-  const deleteProject = async (projectId) => {
+  // --- 5. UPDATE NODE ATTRIBUTES ---
+  const updateNode = async (nodeId, updates) => {
+    // Optimistic Update
+    updateNodeLocally(nodeId, updates);
+
     try {
-      const response = await fetch(`/api/projects/${projectId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      return response.ok;
+      await axios.patch(`${API_URL}/api/projects/nodes/${nodeId}`, updates, getAuthHeaders());
     } catch (err) {
-      setError(err.message);
+      console.error("Node sync failed:", err);
+      // In a production app, you'd rollback the optimistic update here
+    }
+  };
+
+  // --- 6. DELETE NODE (CASCADE) ---
+  const deleteNode = async (nodeId, projectId) => {
+    try {
+      await axios.delete(`${API_URL}/api/projects/nodes/${nodeId}`, getAuthHeaders());
+      await fetchProjectTree(projectId);
+      return true;
+    } catch (err) {
+      setError(err.response?.data?.detail || "Deletion failed.");
       return false;
     }
   };
 
   return {
-    fetchProjectDetails,
-    createProject,
-    updateTaskStatus,
-    deleteProject
+    fetchAllProjects,
+    fetchProjectTree,
+    addNode,
+    decomposeNode,
+    updateNode,
+    deleteNode
   };
 };
