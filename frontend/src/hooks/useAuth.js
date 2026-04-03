@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import axios from 'axios';
 import useAuthStore from '../store/authStore';
 
@@ -13,30 +13,59 @@ export const useAuth = () => {
 
   const formatErrorMessage = (err) => {
     const data = err.response?.data;
-    console.error("🔍 ERROR DIAGNOSTICS:", data);
     if (!data) return err.message || "Network Connection Error";
     if (Array.isArray(data.detail)) return `${data.detail[0].loc[1] || 'Field'}: ${data.detail[0].msg}`;
     if (typeof data.detail === 'string') return data.detail;
     return JSON.stringify(data.detail) || "Server rejected the request.";
   };
 
+  const logout = useCallback(() => {
+    console.log("🧹 Clearing Session...");
+    localStorage.removeItem('kether_token');
+    delete axios.defaults.headers.common['Authorization'];
+    logoutStore();
+  }, [logoutStore]);
+
   const finalizeAuthentication = (user, token) => {
-    console.log("🛠️ STEP 3 [SYNC]: Injecting token into persistence...");
     localStorage.setItem('kether_token', token);
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     loginStore(user, token);
-    console.log("✅ STEP 5 [SYNC]: Handshake complete.");
+    console.log("✅ Handshake complete.");
   };
+
+  /**
+   * NEW: Session Validation Handshake
+   * Checks if the stored token is actually valid against the current DB
+   */
+  const checkAuth = useCallback(async () => {
+    const token = localStorage.getItem('kether_token');
+    if (!token) {
+      logout();
+      return false;
+    }
+
+    try {
+      // Set the header for this specific check
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // Call your "get current user" endpoint
+      const response = await axios.get(`${API_URL}/auth/me`);
+      
+      // If successful, re-sync the store with the user data
+      loginStore(response.data, token);
+      return true;
+    } catch (err) {
+      console.warn("⚠️ Stale session detected (likely DB wipe). Redirecting...");
+      logout();
+      return false;
+    }
+  }, [loginStore, logout]);
 
   const register = async (email, password, fullName) => {
     setIsLoading(true);
     setError(null);
-    // Registration usually accepts JSON
-    const payload = { email, password, fullName };
-    console.log("🚀 STEP 1 [START]: Sending Registration...", payload);
-
     try {
-      const response = await axios.post(`${API_URL}/auth/register`, payload);
+      const response = await axios.post(`${API_URL}/auth/register`, { email, password, fullName });
       const { user, access_token } = response.data;
       finalizeAuthentication(user, access_token);
       return true;
@@ -51,48 +80,26 @@ export const useAuth = () => {
   const login = async (email, password) => {
     setIsLoading(true);
     setError(null);
-
-    /**
-     * STRATEGY: FORM-DATA ENCODING
-     * Many FastAPI backends use OAuth2PasswordRequestForm which 
-     * REQUIRES 'application/x-www-form-urlencoded' content type.
-     */
     const formData = new URLSearchParams();
-    formData.append('username', email); // Mapping your email to the required 'username' key
+    formData.append('username', email);
     formData.append('password', password);
-
-    console.log("🚀 STEP 1 [START]: Attempting Login via Form Data...");
 
     try {
       const response = await axios.post(`${API_URL}/auth/login`, formData, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
       });
-
-      console.log("📥 STEP 2 [SUCCESS]: Login valid.");
       const { user, access_token } = response.data;
       finalizeAuthentication(user, access_token);
       return true;
-
     } catch (err) {
-      const msg = formatErrorMessage(err);
-      console.error("❌ STEP 2 [FAILURE]:", msg);
-      setError(msg);
+      setError(formatErrorMessage(err));
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    console.log("🧹 STEP 0: Clearing Session...");
-    localStorage.removeItem('kether_token');
-    delete axios.defaults.headers.common['Authorization'];
-    logoutStore();
-  };
-
-  return { login, register, logout, isLoading, error };
+  return { login, register, logout, checkAuth, isLoading, error };
 };
 
 export default useAuth;
