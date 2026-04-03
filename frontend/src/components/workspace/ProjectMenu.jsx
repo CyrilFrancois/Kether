@@ -3,9 +3,7 @@ import {
   Plus, 
   Search, 
   MoreVertical, 
-  Layout, 
   Loader2, 
-  Filter, 
   Trash2, 
   Edit3,
   Star,
@@ -23,12 +21,11 @@ const ProjectMenu = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null); 
-  const [filterMode, setFilterMode] = useState('all'); // 'all' or 'favorites'
+  const [filterMode, setFilterMode] = useState('all'); 
   const [activeMenuId, setActiveMenuId] = useState(null); 
   
   const menuRef = useRef(null);
 
-  // Close kebab menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -43,12 +40,10 @@ const ProjectMenu = () => {
     fetchAllProjects();
   }, [fetchAllProjects]);
 
-  // Processing: Search -> Filter Favorites -> Sort
   const processedProjects = [...projects]
     .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
     .filter(p => filterMode === 'favorites' ? p.is_favorite : true)
     .sort((a, b) => {
-      // Favorites always float to the top regardless of name
       if (a.is_favorite !== b.is_favorite) return a.is_favorite ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
@@ -58,9 +53,16 @@ const ProjectMenu = () => {
     setActiveProject(project);
   };
 
+  // ✅ FIX: Added fetchAllProjects() after update
   const handleToggleFavorite = async (e, project) => {
     e.stopPropagation();
-    await updateNode(project.id, { is_favorite: !project.is_favorite });
+    try {
+      await updateNode(project.id, { is_favorite: !project.is_favorite });
+      await fetchAllProjects(); // Refresh the list
+      setActiveMenuId(null);
+    } catch (err) {
+      console.error("Failed to favorite:", err);
+    }
   };
 
   const handleEdit = (e, project) => {
@@ -69,12 +71,27 @@ const ProjectMenu = () => {
     setActiveMenuId(null);
   };
 
+  // ✅ FIX: Added fetchAllProjects() after delete
   const handleDelete = async (e, projectId) => {
     e.stopPropagation();
     if (window.confirm("Permanently delete this project and all associated data?")) {
-      setActiveMenuId(null);
-      await deleteNode(projectId);
+      try {
+        setActiveMenuId(null);
+        await deleteNode(projectId);
+        await fetchAllProjects(); // Refresh the list
+        // If the deleted project was the active one, clear active state
+        if (activeProject?.id === projectId) setActiveProject(null);
+      } catch (err) {
+        console.error("Delete failed:", err);
+      }
     }
+  };
+
+  // ✅ FIX: Refresh list when modal closes (covers Create and Update)
+  const handleModalClose = async () => {
+    setIsCreateModalOpen(false);
+    setEditingProject(null);
+    await fetchAllProjects();
   };
 
   return (
@@ -141,7 +158,7 @@ const ProjectMenu = () => {
                   <span className="item-meta">{project.domain || 'General Project'}</span>
                 </div>
 
-                <div className="options-wrapper" ref={activeMenuId === project.id ? menuRef : null}>
+                <div className="options-wrapper">
                   <button 
                     className={`item-options ${activeMenuId === project.id ? 'visible' : ''}`} 
                     onClick={(e) => {
@@ -153,9 +170,10 @@ const ProjectMenu = () => {
                   </button>
 
                   {activeMenuId === project.id && (
-                    <div className="kebab-menu">
+                    <div className="kebab-menu" ref={menuRef}>
                       <button onClick={(e) => handleToggleFavorite(e, project)}>
-                        <Star size={14} /> {project.is_favorite ? 'Unfavorite' : 'Favorite'}
+                        <Star size={14} fill={project.is_favorite ? "currentColor" : "none"} /> 
+                        {project.is_favorite ? 'Unfavorite' : 'Favorite'}
                       </button>
                       <button onClick={(e) => handleEdit(e, project)}>
                         <Edit3 size={14} /> Settings
@@ -175,57 +193,46 @@ const ProjectMenu = () => {
 
       {(isCreateModalOpen || editingProject) && (
         <UnifiedNodeModal 
-          type="project" 
+          level={1} 
           initialData={editingProject} 
-          onClose={() => {
-            setIsCreateModalOpen(false);
-            setEditingProject(null);
-          }} 
+          onClose={handleModalClose} 
         />
       )}
 
-      <style jsx>{`
+      {/* Standard style tag instead of styled-jsx for compatibility */}
+      <style>{`
         .project-menu { display: flex; flex-direction: column; height: 100%; background: #0d1117; color: #8b949e; border-right: 1px solid #30363d; }
         .menu-header { padding: 16px; border-bottom: 1px solid #30363d; }
         .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #c9d1d9; letter-spacing: 0.5px; }
         .header-actions { display: flex; gap: 4px; }
-
         .btn-icon-subtle { background: none; border: none; color: #484f58; cursor: pointer; padding: 6px; border-radius: 4px; display: flex; align-items: center; }
         .btn-icon-subtle:hover { color: #c9d1d9; background: #21262d; }
         .btn-icon-subtle.active { color: #d29922; }
-
         .btn-create-icon { background: #238636; color: white; border: none; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
         .btn-create-icon:hover { background: #2ea043; }
-
         .search-bar { display: flex; align-items: center; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 0 10px; gap: 8px; }
         .search-bar input { background: transparent; border: none; color: #c9d1d9; padding: 6px 0; font-size: 0.8rem; width: 100%; outline: none; }
         .search-icon { color: #484f58; }
-
         .project-list-container { flex: 1; overflow-y: auto; }
         .project-list { list-style: none; padding: 0; margin: 0; }
         .project-item { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #21262d; transition: background 0.2s; }
         .project-item:hover { background: #161b22; }
         .project-item.active { background: rgba(56, 139, 253, 0.1); }
-
         .item-icon { width: 32px; height: 32px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-right: 12px; overflow: hidden; color: #58a6ff; }
         .project-thumb { width: 100%; height: 100%; object-fit: cover; }
-
         .item-details { flex: 1; min-width: 0; }
         .name-row { display: flex; align-items: center; gap: 6px; }
         .item-name { font-size: 0.85rem; color: #f0f6fc; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .item-meta { font-size: 0.7rem; color: #484f58; text-transform: capitalize; }
-
         .options-wrapper { position: relative; }
         .item-options { background: none; border: none; color: #484f58; cursor: pointer; padding: 4px; opacity: 0; }
         .project-item:hover .item-options, .item-options.visible { opacity: 1; }
-
         .kebab-menu { position: absolute; right: 0; top: 24px; background: #1c2128; border: 1px solid #30363d; border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 50; min-width: 160px; padding: 4px; }
         .kebab-menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px; background: none; border: none; color: #c9d1d9; font-size: 0.75rem; cursor: pointer; border-radius: 4px; text-align: left; }
         .kebab-menu button:hover { background: #30363d; }
         .menu-divider { height: 1px; background: #30363d; margin: 4px 0; }
         .delete-opt { color: #f85149 !important; }
-
         .menu-loading { display: flex; flex-direction: column; align-items: center; padding: 40px; gap: 12px; color: #484f58; font-size: 0.8rem; }
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
