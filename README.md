@@ -166,31 +166,34 @@ tree /f /a | findstr /v /i "node_modules .git __pycache__ kether_db_data pg_ bas
 ├── docker-compose.yml          # Container orchestration (Backend, Frontend, Postgres)
 ├── project_structure.txt       # Static reference of the file tree
 ├── README.md                   # Project documentation and setup guide
-├── agents/                     # Autonomous AI Agent Logic
-│   ├── executor.py             # Executes sub-tasks based on project constraints
-│   ├── toolsmith.py            # Dynamically creates tools for specific project needs
-│   ├── __init__.py
-│   └── prompts/
-│       └── decomposition.txt   # Prompt logic: Reads dynamic DNA to break down projects
 ├── backend/                    # FastAPI Server Application
 │   ├── Dockerfile              # Backend containerization
 │   ├── main.py                 # FastAPI entry point & middleware configuration
 │   ├── requirements.txt        # Python dependencies (SQLAlchemy, FastAPI, etc.)
 │   ├── agents/                 # Internal agent-to-backend communication logic
+│   │   ├── executor.py         # Executes sub-tasks based on project constraints
+│   │   ├── __init__.py
+│   │   └── prompts/
+│   │       └── decomposition.txt # Prompt logic to break down projects
 │   ├── api/                    # API Endpoints
+│   │   ├── attributes.py       # CRUD for dynamic project & Library suggestions
 │   │   ├── auth.py             # User authentication and JWT handling
-│   │   ├── projects.py         # CRUD for projects (Common DNA + Metadata)
-│   │   └── attributes.py       # [NEW] CRUD for dynamic DNA & Library suggestions
+│   │   ├── projects.py         # CRUD for projects (Common + Metadata)
+│   │   └── __init__.py
 │   ├── core/                   # Security and Config
-│   │   └── security.py         # Password hashing and token validation
+│   │   ├── security.py         # Password hashing and token validation
+│   │   └── __init__.py
 │   ├── foundry/                # Logic for the "Foundry" generation engine
+│   │   └── __init__.py
 │   ├── models/                 # SQLAlchemy Database Schemas
-│   │   ├── project.py          # [MODIFY] Common DNA: name, domain, favorite, icon
-│   │   ├── attribute.py        # [CREATE] Dynamic DNA: key, value, type, project_id
-│   │   ├── attributeLibrary.py # [CREATE] Global DNA: track usage freq & domain suggestions
-│   │   └── user.py             # User account structure
+│   │   ├── attribute.py        # Dynamic : key, value, type, project_id
+│   │   ├── attributeLibrary.py # Global : track usage freq & domain suggestions
+│   │   ├── project.py          # Common : name, domain, favorite, icon
+│   │   ├── user.py             # User account structure
+│   │   └── __init__.py
 │   ├── services/               # Business Logic Layer
-│   │   └── storage_service.py  # [CREATE] Handles project-specific file pathing for assets
+│   │   ├── storage_service.py  # Handles project-specific file pathing for assets
+│   │   └── __init__.py
 │   └── workspace_output/       # Local temp storage for generated code/files
 ├── foundry/                    # Physical storage for generated "Foundry" artifacts
 │   ├── library/                # Saved, validated project templates
@@ -211,38 +214,40 @@ tree /f /a | findstr /v /i "node_modules .git __pycache__ kether_db_data pg_ bas
 │       │   │   ├── LoginForm.jsx    # User login UI
 │       │   │   └── SystemPulse.jsx  # Visual indicator of API/Agent health
 │       │   ├── ui/             
+│       │   │   ├── AttributeField.jsx # Polymorphic field (Text/List/Toggle)
 │       │   │   ├── Button.jsx       # Standardized UI buttons
 │       │   │   ├── Input.jsx        # Generic text inputs
 │       │   │   ├── ModalChat.jsx    # Mini-chat interface for AI interaction
 │       │   │   ├── ProjectCard.jsx  # Summary view of a project
 │       │   │   ├── StatusDot.jsx    # Visual state indicator (Active/Archived)
-│       │   │   ├── UnifiedNodeModal.jsx # [MODIFY] Form to add dynamic DNA fields
-│       │   │   └── AttributeField.jsx   # [CREATE] Polymorphic field (Text/List/Toggle)
+│       │   │   └── UnifiedNodeModal.jsx # Form to add dynamic fields
 │       │   └── workspace/      
 │       │       ├── BacklogView.jsx      # Task-oriented project view
 │       │       ├── FlowerView.jsx       # Visual mapping of project dependencies
+│       │       ├── ProjectCard.jsx      # Component for project display in workspace
 │       │       ├── ProjectMap.jsx       # High-level architecture visualization
-│       │       ├── ProjectMenu.jsx      # [MODIFY] Sidebar list with domain icons
-│       │       ├── SmartInspector.jsx   # [MODIFY] Detail sidebar showing dynamic DNA
+│       │       ├── ProjectMenu.jsx      # Sidebar list with domain icons
+│       │       ├── SmartInspector.jsx   # Detail sidebar showing dynamic DNA
 │       │       └── TreeView.jsx         # Hierarchical view of project sub-nodes
 │       ├── hooks/              
-│       │   ├── useAuth.js               # Auth state logic
-│       │   ├── useHealthCheck.js        # Connectivity monitoring
-│       │   ├── useProjects.js           # CRUD operations for projects
-│       │   └── useAttributes.js         # [CREATE] Logic for fetching DNA suggestions
+│       │   ├── useAttributes.js     # Logic for fetching DNA suggestions
+│       │   ├── useAuth.js           # Auth state logic
+│       │   ├── useHealthCheck.js    # Connectivity monitoring
+│       │   └── useProjects.js       # CRUD operations for projects
 │       ├── pages/              
-│       │   ├── Connection.jsx           # Landing/Login page
-│       │   ├── Dashboard.jsx            # Overiew of all domains/projects
-│       │   ├── Foundry.jsx              # AI Generation workspace
-│       │   ├── Settings.jsx             # User and App configuration
-│       │   └── Workspace.jsx            # Main interactive project environment
+│       │   ├── Connection.jsx       # Landing/Login page
+│       │   ├── Dashboard.jsx        # Overview of all domains/projects
+│       │   ├── Foundry.jsx          # AI Generation workspace
+│       │   ├── Settings.jsx         # User and App configuration
+│       │   └── Workspace.jsx        # Main interactive project environment
 │       └── store/              
-│           ├── authStore.js             # User state management
-│           └── projectStore.js          # [MODIFY] Adaptive DNA and UI state
-├── database_data/              # Persistent Postgres storage (Volume mapped)
-│   ├── postgresql.conf         # DB configuration
-│   └── pgstat.stat             # DB statistics
-└── workspace_output/           # Root-level output for exported projects
+│           ├── authStore.js         # User state management
+│           └── projectStore.js      # Adaptive and UI state
+└── database_data/              # Persistent Postgres storage (Volume mapped)
+    ├── postgresql.auto.conf
+    ├── postgresql.conf         # DB configuration
+    ├── postmaster.opts
+    └── pgstat.stat             # DB statistics
 
 ---
 
@@ -275,9 +280,9 @@ Training Kether to use its own Project Management tab to track its own bugs and 
 Can you confirm project are linked to a user? And user have rights (modify, comment, just read) and can be share (by user tag or mail or send email to invite)
 ---
 
-Alright, it seems perfect! So let's focus on what we gonna have to do. I'm gonna give you the fill structure of Kether, and you gonna list all file we have to CREATE or MODIFY, whats we gonna in it. For each operation, i want one line with the file name, MODIFY or CREATE, and the objective.
+So let's focus on what we gonna have to do. I'm gonna give you the fill structure of Kether, and you gonna list all file we have to CREATE or MODIFY, whats we gonna in it. I wan a summary of what we gonna do and why then, For each operation, i want one compact line with the file name, MODIFY or CREATE, and the objective. 
 
-Here is the current file structure
+Here is the current file structure:
 
 --- 
 
@@ -291,27 +296,23 @@ Anything to add or correct? Espicially with the first files and later improvment
 
 ---
 
-So let's correct those few things one file at a time. Generate the whole file. And below the code to rewrite entierly if needed.
-Here the one file with focus on before going to the next:
+So let's correct those few things one file at a time. Generate the whole file. Taking into account the previous files modifications. And below the code to rewrite entierly if needed. And stop with the DNA things, we stay pro on a Porject Management App.
+Here the one file with focus on before going to the next: frontend/src/components/ui/UnifiedNodeModal.jsx
 
-1. Database & Backend (The Foundation)
-backend/models/project.py: MODIFY – Remove IT-specific columns (tech_stack, etc.) and add domain, is_favorite, and description.
-backend/models/attribute.py: CREATE – New model to store the "DNA" (key-value pairs) linked to projects.
-backend/models/attributeLibrary.py: CREATE – New model to track global attribute popularity and types for the "Suggestions" UI.
-backend/routes/projects.py: MODIFY – Update GET/POST logic to handle the new project structure and include associated attributes in the response.
-backend/routes/attributes.py: CREATE – Routes to fetch suggested attributes based on a selected domain.
-2. File System & Storage
-backend/utils/storage_manager.py: CREATE – Utility to handle project-specific directory creation (/projects/{uuid}/assets) for icons and images.
-backend/routes/upload.py: MODIFY – Update upload logic to save files into the new project-structured pathing system.
-3. Frontend Store & State (Zustand)
-src/store/projectStore.js: MODIFY – Update the activeProject state structure and add a globalAttributes array for the library.
-src/hooks/useAttributes.js: CREATE – Hook to fetch suggested attributes when a user selects a "Domain" in the modal.
-4. UI Components (The Experience)
-src/components/ui/UnifiedNodeModal.jsx: MODIFY – Rewrite the form to be dynamic: instead of fixed inputs, render a list of attributes with an "Add Custom Field" button.
-src/components/ui/AttributeField.jsx: CREATE – New component to handle different input types (Text, List, Toggle, File) based on the attribute definition.
-src/components/workspace/ProjectMenu.jsx: MODIFY – Update rendering to use the new Icon and Description fields from the common DNA.
-src/components/inspector/ProjectInspector.jsx: MODIFY – Update the sidebar to display the dynamic attributes (e.g., showing "Locally Sourced" for a deck or "Tech Stack" for an app).
-5. AI & Prompting (The Logic)
-server/services/prompt_builder.py: MODIFY – Update the "System Prompt" generator to inject the dynamic JSON attributes into the LLM context.
+Backend: Database & Core Logic
+backend/models/attribute.py | MODIFY | Define the EAV table for dynamic keys, values, and project relationships.
+backend/models/attributeLibrary.py | MODIFY | Define global tracking for frequent attributes to power AI suggestions.
+backend/models/project.py | MODIFY | Link projects to the new dynamic attributes and remove hardcoded IT fields.
+backend/api/attributes.py | MODIFY | Implement endpoints for fetching domain suggestions and saving project DNA.
+backend/api/projects.py | MODIFY | Update project creation logic to handle dynamic metadata and domain icons.
+backend/main.py | MODIFY | Register the new attributes router to resolve the current 404 errors.
+Frontend: UI & State Management
+frontend/src/store/projectStore.js | MODIFY | Update state to handle nested attributes and fix the "React child object" error.
+frontend/src/hooks/useAttributes.js | MODIFY | Finalize logic to sync local state with the new backend attribute endpoints.
+frontend/src/components/ui/UnifiedNodeModal.jsx | MODIFY | Update form submission to send dynamic attribute arrays instead of static fields.
+frontend/src/components/workspace/SmartInspector.jsx | MODIFY | Render the dynamic attribute list for the selected project node.
+frontend/src/components/ui/AttributeField.jsx | MODIFY | Build a polymorphic input component that switches between text, list, and toggle.
+frontend/src/pages/Workspace.jsx | MODIFY | Add error handling to prevent blank pages when API calls fail.
 
 Here is the code of the existing file to correct/modify:
+

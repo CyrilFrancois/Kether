@@ -2,12 +2,12 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 /**
- * Helper: Find a node by ID anywhere in the nested tree
+ * Utility: Recursively find a node by ID within the project tree.
  */
 const findNodeInTree = (node, id) => {
   if (!node) return null;
   if (node.id === id) return node;
-  if (node.children) {
+  if (node.children && node.children.length > 0) {
     for (const child of node.children) {
       const found = findNodeInTree(child, id);
       if (found) return found;
@@ -20,71 +20,90 @@ const useProjectStore = create(
   persist(
     (set, get) => ({
       // --- STATE ---
-      projects: [],              // List of all Level 1 nodes (Sidebar)
-      activeProject: null,       // The currently active L1 Project
-      projectTree: null,         // The full recursive tree (L1 -> L5)
+      projects: [],               // Root-level project list (Sidebar)
+      activeProject: null,        // Currently active project container
+      projectTree: null,          // Full hierarchical tree (Nodes/Tasks)
       
-      // UI State
-      viewMode: 'tree',          
+      // Dynamic Attribute Registry
+      suggestions: [],            // Domain-specific attribute suggestions
+      
+      // UI / Interaction State
+      viewMode: 'tree',           // 'tree', 'backlog', 'diagram'
       isInspectorOpen: false,    
-      selectedNode: null,        // Focused node in the Inspector
+      selectedNode: null,         // The node currently being edited in Inspector
       
       loading: false,
       error: null,
 
       // --- ACTIONS ---
 
-      // Set the sidebar list
+      // Project Navigation
       setProjects: (projects) => set({ projects, error: null }),
       
-      // Select a project and prepare workspace
       setActiveProject: (project) => set({ 
         activeProject: project, 
-        projectTree: null,       // Clear old tree to force fresh load
+        projectTree: null,        // Reset tree to trigger fresh fetch on navigation
+        suggestions: [], 
         selectedNode: null,
         isInspectorOpen: false,
         error: null 
       }),
 
-      // UI Controls
+      // View Controls
       setViewMode: (mode) => set({ viewMode: mode }),
       
-      setSelectedNode: (node) => set({ 
-        selectedNode: node, 
-        isInspectorOpen: !!node 
-      }),
+      setSelectedNode: (node) => {
+        // Prevent "React child object" errors by ensuring attributes are handled as arrays
+        const safeNode = node ? { ...node, attributes: node.attributes || [] } : null;
+        set({ 
+          selectedNode: safeNode, 
+          isInspectorOpen: !!safeNode 
+        });
+      },
       
       setInspectorOpen: (isOpen) => set({ 
         isInspectorOpen: isOpen,
-        // Keep selectedNode if opening, clear if closing
         selectedNode: isOpen ? get().selectedNode : null 
       }),
 
-      // Tree Synchronization
+      // Attribute Suggestions
+      setSuggestions: (suggestions) => set({ suggestions }),
+      
+      // Tree Sync Logic
       setProjectTree: (tree) => {
         const currentSelected = get().selectedNode;
         set({ 
           projectTree: tree, 
           loading: false,
-          // Re-sync the selected node reference so the Inspector has the latest data
+          // Re-sync selected node with the new tree data to maintain UI consistency
           selectedNode: currentSelected ? findNodeInTree(tree, currentSelected.id) : null
         });
       },
 
-      // --- RECURSIVE ENGINE ---
-      
-      // Optimistic Update: Updates UI immediately while waiting for server
+      /**
+       * updateNodeLocally: Recursively updates a specific node in the local state.
+       * This provides an "Instant UI" feel before the backend confirmation.
+       */
       updateNodeLocally: (nodeId, updates) => {
         const updateRecursive = (node) => {
           if (!node) return null;
           
           if (node.id === nodeId) {
-            // Handle node_metadata merging specifically
+            // Logic for merging attributes and metadata correctly
+            const updatedAttributes = updates.attributes 
+              ? [...updates.attributes] 
+              : (node.attributes || []);
+
             const updatedMetadata = updates.node_metadata 
               ? { ...node.node_metadata, ...updates.node_metadata } 
               : node.node_metadata;
               
-            return { ...node, ...updates, node_metadata: updatedMetadata };
+            return { 
+              ...node, 
+              ...updates, 
+              attributes: updatedAttributes,
+              node_metadata: updatedMetadata 
+            };
           }
           
           if (node.children && node.children.length > 0) {
@@ -101,7 +120,7 @@ const useProjectStore = create(
           const newTree = updateRecursive(currentTree);
           set({ 
             projectTree: newTree,
-            // Sync Inspector if the edited node is the one open
+            // Automatically refresh the inspector if the edited node is the selected one
             selectedNode: get().selectedNode?.id === nodeId 
               ? findNodeInTree(newTree, nodeId) 
               : get().selectedNode
@@ -109,7 +128,7 @@ const useProjectStore = create(
         }
       },
 
-      // Utility Actions
+      // Global Helpers
       setLoading: (isLoading) => set({ loading: isLoading }),
       setError: (error) => set({ error, loading: false }),
 
@@ -117,6 +136,7 @@ const useProjectStore = create(
         projects: [],
         activeProject: null,
         projectTree: null,
+        suggestions: [],
         selectedNode: null,
         viewMode: 'tree',
         isInspectorOpen: false,
@@ -125,8 +145,8 @@ const useProjectStore = create(
       })
     }),
     {
-      name: 'kether-workspace-storage',
-      // Only persist essential UI state and current project selection
+      name: 'pm-app-workspace-state',
+      // Persist only what the user needs for session continuity
       partialize: (state) => ({ 
         activeProject: state.activeProject, 
         viewMode: state.viewMode 

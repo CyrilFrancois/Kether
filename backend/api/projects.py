@@ -1,175 +1,151 @@
-import json
 import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import selectinload
 
 from core.database import get_session 
-from core.security import get_current_user
+from api.auth import get_current_user # Fixed import to match main.py
 from models.user import User
-# Ensure we are importing the renamed ProjectNode
-from models.project import ProjectNode, NodeCreate, NodeUpdate, NodeTreeRead, NodeRead
+from models.project import Project, ProjectCreate, ProjectUpdate, ProjectRead, ProjectTreeRead
+from models.attribute import Attribute
 
-router = APIRouter()
+# Removed prefix here because it's handled globally in main.py as /api/projects
+router = APIRouter(tags=["Projects"])
 
-# --- UTILITY: FIND ROOT PROJECT NODE ---
-def get_root_metadata(db: Session, node: ProjectNode) -> dict:
-    """Recursively climbs the tree to find Level 1 metadata (Tech Stack)."""
-    current = node
-    # Security: Ensure we don't loop infinitely if data is corrupted
-    visited = set() 
-    while current.parent_id is not None and current.id not in visited:
-        visited.add(current.id)
-        parent = db.get(ProjectNode, current.parent_id)
-        if not parent:
-            break
-        current = parent
-    # Access the renamed node_metadata field
-    return current.node_metadata if current else {}
+# --- UTILITY: GET PROJECT CONTEXT ---
+def get_project_context(db: Session, project_id: int) -> dict:
+    """Fetches all dynamic attributes for a project to provide context for AI agents."""
+    statement = select(Attribute).where(Attribute.project_id == project_id)
+    attributes = db.exec(statement).all()
+    return {attr.key: attr.value for attr in attributes}
 
-# --- 1. LIST ROOT PROJECTS (Level 1 Only) ---
-@router.get("", response_model=List[NodeRead])
-async def list_root_projects(
+# --- 1. LIST PROJECTS ---
+@router.get("", response_model=List[ProjectRead])
+async def list_projects(
     current_user: User = Depends(get_current_user), 
-    db: Session = Depends(get_session)
+    db: Session = Depends(get_session),
+    level: Optional[int] = 1,
+    domain: Optional[str] = None
 ):
-    statement = select(ProjectNode).where(
-        ProjectNode.user_id == current_user.id,
-        ProjectNode.level == 1
+    """Lists projects, defaulting to root level (Level 1)."""
+    statement = select(Project).where(
+        Project.user_id == current_user.id,
+        Project.level == level
     )
+    if domain:
+        statement = statement.where(Project.domain == domain)
+    
+    # Eagerly load attributes to avoid N+1 queries
+    statement = statement.options(selectinload(Project.attributes))
+    
     results = db.exec(statement)
     return results.all()
 
-# --- 2. CREATE A NODE ---
-@router.post("", response_model=NodeRead)
-async def create_node(
-    node_in: NodeCreate, 
+# --- 2. CREATE A PROJECT (WITH EAV ATTRIBUTES) ---
+@router.post("", response_model=ProjectRead)
+async def create_project(
+    project_in: ProjectCreate, 
     current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_session)
 ):
-    new_node = ProjectNode(
-        **node_in.model_dump(),
-        user_id=current_user.id
+    """
+    Creates a project node. 
+    Note: Dynamic attributes are usually sent in the project_in 
+    if ProjectCreate includes them, or via a separate update.
+    """
+    # 1. Create the base project
+    new_project = Project(
+        name=project_in.name,
+        description=project_in.description,
+        domain=project_in.domain,
+        parent_id=project_in.parent_id,
+        level=project_in.level,
+        status=project_in.status,
+        user_id=current_user.id,
+        node_metadata=project_in.node_metadata
     )
-    db.add(new_node)
+    
+    db.add(new_project)
     db.commit()
-    db.refresh(new_node)
-    return new_node
+    db.refresh(new_project)
 
-# --- 3. GET FULL RECURSIVE TREE ---
-@router.get("/tree/{project_id}", response_model=NodeTreeRead)
+    # 2. If attributes were passed in the ProjectCreate schema
+    # (Assuming ProjectCreate has been updated to accept an attributes list)
+    if hasattr(project_in, 'attributes') and project_in.attributes:
+        for attr_data in project_in.attributes:
+            new_attr = Attribute(
+                key=attr_data.key,
+                value=str(attr_data.value),
+                type=attr_data.type,
+                project_id=new_project.id
+            )
+            db.add(new_attr)
+        db.commit()
+        db.refresh(new_project)
+
+    return new_project
+
+# --- 3. GET FULL PROJECT TREE ---
+@router.get("/tree/{project_id}", response_model=ProjectTreeRead)
 async def get_project_tree(
     project_id: int, 
     current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_session)
 ):
-    statement = select(ProjectNode).where(
-        ProjectNode.id == project_id,
-        ProjectNode.user_id == current_user.id
-    ).options(selectinload(ProjectNode.children))
+    """Fetches a project and all its nested sub-nodes recursively."""
+    statement = select(Project).where(
+        Project.id == project_id,
+        Project.user_id == current_user.id
+    ).options(
+        selectinload(Project.children),
+        selectinload(Project.attributes)
+    )
     
     result = db.exec(statement).first()
     if not result:
-        raise HTTPException(status_code=404, detail="Project node not found")
+        raise HTTPException(status_code=404, detail="Project not found")
     return result
 
-# --- 4. UPDATE NODE ---
-@router.patch("/{node_id}", response_model=NodeRead)
-async def update_node(
-    node_id: int,
-    node_update: NodeUpdate,
+# --- 4. UPDATE PROJECT ---
+@router.patch("/{project_id}", response_model=ProjectRead)
+async def update_project(
+    project_id: int,
+    project_update: ProjectUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session)
 ):
-    db_node = db.get(ProjectNode, node_id)
-    if not db_node or db_node.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Node not found")
+    """Updates common fields and handles metadata merging."""
+    db_project = db.get(Project, project_id)
+    if not db_project or db_project.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Project not found")
     
-    update_data = node_update.model_dump(exclude_unset=True)
+    update_data = project_update.model_dump(exclude_unset=True)
     
     for key, value in update_data.items():
-        # Handle the renamed node_metadata merge logic
         if key == "node_metadata" and value is not None:
-            existing_meta = db_node.node_metadata or {}
-            db_node.node_metadata = {**existing_meta, **value}
+            existing_meta = db_project.node_metadata or {}
+            db_project.node_metadata = {**existing_meta, **value}
         else:
-            setattr(db_node, key, value)
+            setattr(db_project, key, value)
     
-    db.add(db_node)
+    db.add(db_project)
     db.commit()
-    db.refresh(db_node)
-    return db_node
+    db.refresh(db_project)
+    return db_project
 
-# --- 5. AI DECOMPOSITION (The Architect Agent) ---
-@router.post("/{node_id}/ai-generate")
-async def ai_generate_subnodes(
-    node_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_session)
-):
-    parent_node = db.get(ProjectNode, node_id)
-    if not parent_node or parent_node.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Parent node not found")
-
-    if parent_node.level >= 5:
-        raise HTTPException(status_code=400, detail="Depth limit reached (Level 5).")
-
-    # 1. Fetch Context using updated utility
-    root_meta = get_root_metadata(db, parent_node)
-    tech_stack = root_meta.get("tech_stack", "Not specified")
-
-    # 2. Load the System Prompt (assuming this path exists in your Docker/Local setup)
-    prompt_path = os.path.join("agents", "prompts", "decomposition.txt")
-    if os.path.exists(prompt_path):
-        with open(prompt_path, "r") as f:
-            system_prompt = f.read()
-    else:
-        system_prompt = "Decompose {{parent_name}} into {{target_level}} tasks using {{tech_stack}}."
-
-    # 3. Fill Placeholders
-    final_prompt = system_prompt.replace("{{parent_level}}", str(parent_node.level)) \
-                                .replace("{{target_level}}", str(parent_node.level + 1)) \
-                                .replace("{{parent_name}}", parent_node.name) \
-                                .replace("{{parent_description}}", parent_node.description or "None") \
-                                .replace("{{tech_stack}}", tech_stack)
-
-    # 4. SIMULATION: Mock Architect Response using node_metadata
-    mock_response = [
-        {
-            "name": f"Sub-module for {parent_node.name}",
-            "description": "Auto-generated architectural component.",
-            "level": parent_node.level + 1,
-            "node_metadata": {"generated_by": "ArchitectAgent", "priority": "High"}
-        }
-    ]
-
-    # 5. Commit generated nodes to DB
-    new_children = []
-    for child_data in mock_response:
-        child_node = ProjectNode(
-            **child_data,
-            parent_id=parent_node.id,
-            user_id=current_user.id
-        )
-        db.add(child_node)
-        new_children.append(child_node)
-
-    db.commit()
-    return {"status": "success", "added": len(new_children)}
-
-# --- 6. DELETE NODE ---
-@router.delete("/{node_id}")
-async def delete_node(
-    node_id: int, 
+# --- 5. DELETE PROJECT ---
+@router.delete("/{project_id}")
+async def delete_project(
+    project_id: int, 
     current_user: User = Depends(get_current_user), 
     db: Session = Depends(get_session)
 ):
-    node = db.get(ProjectNode, node_id)
-    if not node or node.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Node not found")
+    """Purges project. Cascades handle sub-nodes and EAV attributes."""
+    project = db.get(Project, project_id)
+    if not project or project.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Project not found")
     
-    # SQLAlchemy handles children deletion via cascade configured in models/project.py
-    db.delete(node)
+    db.delete(project)
     db.commit()
-    return {"message": "Node and descendants purged."}
+    return {"status": "success", "message": "Project purged."}

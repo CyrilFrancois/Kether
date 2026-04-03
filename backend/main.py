@@ -9,41 +9,50 @@ from fastapi.responses import JSONResponse
 
 # --- 1. CORE & MODEL IMPORTS ---
 from core.database import init_db
-# CRITICAL FIX: Import from the models package directly to ensure 
-# the __init__.py logic runs and registers both User and Project classes.
-from models import User, Project, ProjectNode 
-from api import auth, projects
+# Ensure models are imported to register with SQLModel metadata
+from models.user import User
+from models.project import Project, ProjectNode
+from models.attribute import Attribute
+from models.attributeLibrary import AttributeLibrary
+from api import auth, projects, attributes
 
 # --- 2. ENGINE LIFESPAN ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("\n" + "="*50)
-    print("🚀 KETHER AI ORCHESTRATOR: INITIALIZING")
+    print("🚀 PROJECT MANAGEMENT ENGINE: INITIALIZING")
     print("="*50)
     
     try:
-        # init_db() calls SQLModel.metadata.create_all(engine)
-        # Since we imported User and Project above, they are now in metadata.
+        # Initialize database tables
         init_db()
-        print("✅ DATABASE: Unified L1-L5 Schema synchronized.")
+        print("✅ DATABASE: Schema synchronization complete (EAV + Project Tree).")
     except Exception as e:
         print(f"❌ DATABASE: Initialization failed! Error: {e}")
     
     yield
     
     print("\n" + "="*50)
-    print("🛑 KETHER ENGINE: SHUTTING DOWN")
+    print("🛑 ENGINE: SHUTTING DOWN")
     print("="*50)
 
 # --- 3. APP INITIALIZATION ---
 app = FastAPI(
-    title="Kether Engine",
-    version="1.1.0",
-    description="The L1-L5 Recursive Orchestration Core",
+    title="Project Management API",
+    version="1.2.0",
+    description="Professional Orchestration Core with Dynamic Attribute Support",
     lifespan=lifespan
 )
 
-# --- 4. DIAGNOSTIC MIDDLEWARE ---
+# --- 4. MIDDLEWARE (CORS & DIAGNOSTICS) ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"], # Allow all headers for flexible orchestration
+)
+
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.time()
@@ -56,48 +65,38 @@ async def add_process_time_header(request: Request, call_next):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
-    print("\n" + "!"*50)
-    print("❌ SCHEMA MISMATCH: Validation Error")
-    for error in errors:
-        print(f"   - FIELD: {error.get('loc')}")
-        print(f"   - MSG: {error.get('msg')}")
-    print("!"*50 + "\n")
-    
-    return JSONResponse(
-        status_code=422,
-        content={"detail": errors}
-    )
+    print(f"❌ VALIDATION ERROR at {request.url.path}: {errors}")
+    return JSONResponse(status_code=422, content={"detail": errors})
 
-# --- 6. MIDDLEWARE (CORS) ---
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
-)
+# --- 6. ROUTER REGISTRATION ---
+# Unified /api prefix to prevent 404s and organize the namespace
 
-# --- 7. ROUTER REGISTRATION ---
-app.include_router(auth.router, prefix="/auth", tags=["L0: Identity"])
-app.include_router(projects.router, prefix="/projects", tags=["L1-L5: Orchestration"])
+# Auth: /api/auth
+app.include_router(auth.router, prefix="/api/auth", tags=["Identity"])
 
-# --- 8. SYSTEM ENDPOINTS ---
+# Projects: /api/projects
+app.include_router(projects.router, prefix="/api/projects", tags=["Projects"])
+
+# Attributes: /api/attributes
+app.include_router(attributes.router, prefix="/api/attributes", tags=["Attributes"])
+
+# --- 7. SYSTEM ENDPOINTS ---
 
 @app.get("/health")
 async def health_check():
     return {
         "status": "online",
-        "engine": "Kether 1.1.0",
-        "layers": "L1-L5 Recursive",
-        "database": "connected"
+        "version": "1.2.0",
+        "database": "connected",
+        "features": ["Dynamic EAV", "Hierarchical Nodes"]
     }
 
 @app.get("/")
 async def root():
     return {
-        "message": "Kether Engine: Online.",
+        "message": "Project Management API Core",
         "docs": "/docs",
-        "architecture": "Recursive Node Tree"
+        "api_root": "/api"
     }
 
 if __name__ == "__main__":
