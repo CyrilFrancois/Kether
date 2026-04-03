@@ -1,6 +1,5 @@
 from sqlmodel import SQLModel
 from .user import User
-from .project import ProjectNode
+from .project import Project, ProjectNode
 
-# We export SQLModel so other files can use it as the metadata source
-__all__ = ["SQLModel", "User", "ProjectNode"]
+__all__ = ["SQLModel", "User", "Project", "ProjectNode"]

@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import useProjectStore from '../store/projectStore';
 import useAuthStore from '../store/authStore';
 import axios from 'axios';
@@ -12,22 +13,22 @@ export const useProjects = () => {
     setLoading, 
     setError, 
     updateNodeLocally,
-    activeProject
+    activeProject,
+    setActiveProject
   } = useProjectStore();
 
   // Helper for authenticated headers
-  const getAuthHeaders = () => ({
+  const getAuthHeaders = useCallback(() => ({
     headers: { 
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     }
-  });
+  }), [token]);
 
   // --- 1. FETCH ALL ROOT PROJECTS (LEVEL 1) ---
-  const fetchAllProjects = async () => {
+  const fetchAllProjects = useCallback(async () => {
     setLoading(true);
     try {
-      // Endpoint updated to /projects (which filters for Level 1 in backend)
       const res = await axios.get(`${API_URL}/projects`, getAuthHeaders());
       setProjects(res.data);
     } catch (err) {
@@ -35,92 +36,100 @@ export const useProjects = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeaders, setLoading, setProjects, setError]);
 
   // --- 2. FETCH FULL RECURSIVE TREE ---
-  const fetchProjectTree = async (projectId) => {
+  const fetchProjectTree = useCallback(async (projectId) => {
     const id = projectId || activeProject?.id;
     if (!id) return;
 
     setLoading(true);
     try {
-      // Matches backend: /projects/tree/{project_id}
       const res = await axios.get(`${API_URL}/projects/tree/${id}`, getAuthHeaders());
       setProjectTree(res.data);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to sync Workspace tree.");
+      setError(err.response?.data?.detail || "Failed to sync project structure.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeProject?.id, getAuthHeaders, setLoading, setProjectTree, setError]);
 
-  // --- 3. CREATE NODE (Any Level 1-5) ---
+  // --- 3. CREATE PROJECT OR SUB-NODE ---
   const addNode = async (nodeData) => {
     setLoading(true);
     try {
-      // Matches backend: POST /projects
       const res = await axios.post(`${API_URL}/projects`, nodeData, getAuthHeaders());
       
-      // If we are adding a child to the current view, refresh the tree
-      await fetchProjectTree();
+      const newNode = res.data;
+
+      // SYNC LOGIC:
+      if (newNode.level === 1) {
+        // If it's a root project, refresh the sidebar list and select it
+        await fetchAllProjects();
+        setActiveProject(newNode);
+      } else {
+        // If it's a sub-node (Task, Logic, etc), refresh the current tree view
+        await fetchProjectTree();
+      }
       
-      return res.data;
+      return newNode;
     } catch (err) {
-      setError(err.response?.data?.detail || "Could not create node.");
+      setError(err.response?.data?.detail || "Could not create project node.");
       return null;
     } finally {
       setLoading(false);
     }
   };
 
-  // --- 4. AI DECOMPOSITION (The Architect Trigger) ---
+  // --- 4. AI-ASSISTED PROJECT DECOMPOSITION ---
   const generateSubNodes = async (nodeId) => {
     setLoading(true);
     try {
-      // Matches backend: POST /projects/{node_id}/ai-generate
       const res = await axios.post(`${API_URL}/projects/${nodeId}/ai-generate`, {}, getAuthHeaders());
       
-      // The backend starts a background task or returns early. 
-      // For immediate UI feedback, we re-fetch the tree to see new children.
+      // Re-fetch the tree to show the AI-generated tasks
       await fetchProjectTree();
       
       return res.data;
     } catch (err) {
-      setError(err.response?.data?.detail || "Architect failed to decompose node.");
+      setError(err.response?.data?.detail || "AI Assistant failed to decompose project.");
     } finally {
       setLoading(false);
     }
   };
 
-  // --- 5. UPDATE NODE (Smart Inspector Sync) ---
+  // --- 5. UPDATE PROJECT/NODE (Sync with Smart Inspector) ---
   const updateNode = async (nodeId, updates) => {
-    // 1. Optimistic Update in Zustand (UI stays snappy)
+    // Optimistic UI update
     updateNodeLocally(nodeId, updates);
 
     try {
-      // 2. Network Sync: PATCH /projects/{node_id}
-      // Note: updates can contain 'metadata: { ... }' or 'status' or 'name'
       await axios.patch(`${API_URL}/projects/${nodeId}`, updates, getAuthHeaders());
+      
+      // If we updated the name of a Level 1 project, refresh the sidebar list
+      if (updates.name && activeProject?.id === nodeId && activeProject.level === 1) {
+        fetchAllProjects();
+      }
     } catch (err) {
-      console.error("Node sync failed:", err);
+      console.error("Project sync failed:", err);
       setError("Sync failed. Changes may not be saved.");
-      // Rollback logic would go here
     }
   };
 
-  // --- 6. DELETE NODE (Recursive Cascade) ---
+  // --- 6. DELETE PROJECT/NODE ---
   const deleteNode = async (nodeId) => {
-    if (!window.confirm("Are you sure? This will delete all sub-tasks and logic flows within this node.")) return;
+    if (!window.confirm("Delete this item and all its nested sub-tasks?")) return;
 
     try {
-      // Matches backend: DELETE /projects/{node_id}
       await axios.delete(`${API_URL}/projects/${nodeId}`, getAuthHeaders());
       
-      // If we just deleted the root project, refresh the project list
       if (activeProject?.id === nodeId) {
-        fetchAllProjects();
+        // If we deleted the project we are currently looking at
+        setActiveProject(null);
         setProjectTree(null);
+        await fetchAllProjects();
       } else {
+        // If we deleted a sub-task, just refresh the tree
         await fetchProjectTree();
       }
       return true;
@@ -134,7 +143,7 @@ export const useProjects = () => {
     fetchAllProjects,
     fetchProjectTree,
     addNode,
-    generateSubNodes, // Renamed from decomposeNode for clarity
+    generateSubNodes,
     updateNode,
     deleteNode
   };

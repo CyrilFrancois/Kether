@@ -1,12 +1,14 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 import sqlalchemy as sa
 
-# --- THE RECURSIVE NODE (Layers 1-5) ---
-class ProjectNode(SQLModel, table=True):
+if TYPE_CHECKING:
+    from .user import User
+
+class Project(SQLModel, table=True):
     """
-    A unified recursive model representing any entity in the project hierarchy:
+    The primary model for the project hierarchy.
     Level 1: Project (DNA)
     Level 2: Functionality (User Story)
     Level 3: Logic Flow (Functional Task)
@@ -18,8 +20,8 @@ class ProjectNode(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
     description: Optional[str] = None
-    level: int = Field(default=1, index=True) # 1 through 5
-    status: str = Field(default="todo") # todo, in_progress, done, archived
+    level: int = Field(default=1, index=True) 
+    status: str = Field(default="todo")
     
     # --- HIERARCHY ---
     parent_id: Optional[int] = Field(
@@ -27,25 +29,27 @@ class ProjectNode(SQLModel, table=True):
         sa_column=sa.Column(sa.Integer, sa.ForeignKey("project_nodes.id", ondelete="CASCADE"))
     )
     
-    # Self-referential relationship
-    children: List["ProjectNode"] = Relationship(
+    # Self-referential relationship - now referencing "Project"
+    children: List["Project"] = Relationship(
         back_populates="parent",
         sa_relationship_kwargs={
             "cascade": "all, delete-orphan",
-            "remote_side": "ProjectNode.parent_id" # Corrected remote_side for parent-child
+            "remote_side": "Project.parent_id"
         }
     )
     
-    parent: Optional["ProjectNode"] = Relationship(
+    parent: Optional["Project"] = Relationship(
         back_populates="children",
-        sa_relationship_kwargs={"remote_side": "ProjectNode.id"}
+        sa_relationship_kwargs={"remote_side": "Project.id"}
     )
 
     # --- OWNERSHIP ---
     user_id: int = Field(foreign_key="users.id")
     
+    # This must match back_populates="projects" in User
+    owner: Optional["User"] = Relationship(back_populates="projects")
+    
     # --- DYNAMIC DATA ---
-    # RENAMED from 'metadata' to 'node_metadata' to avoid SQLAlchemy reserved keyword conflict
     node_metadata: Dict[str, Any] = Field(
         default_factory=dict, 
         sa_column=Column(JSON)
@@ -58,8 +62,12 @@ class ProjectNode(SQLModel, table=True):
         sa_column_kwargs={"onupdate": datetime.utcnow}
     )
 
-# --- SCHEMAS FOR API (Pydantic-only) ---
+# --- BACKWARD COMPATIBILITY ALIAS ---
+# Any code importing ProjectNode will now get the Project class
+ProjectNode = Project 
 
+# --- SCHEMAS FOR API ---
+# These remain the same but now strictly reference Project/ProjectNode logic
 class NodeCreate(SQLModel):
     name: str
     description: Optional[str] = None
@@ -84,5 +92,4 @@ class NodeRead(SQLModel):
     created_at: datetime
 
 class NodeTreeRead(NodeRead):
-    """Recursive schema for the 5-layer tree fetch"""
     children: List["NodeTreeRead"] = []

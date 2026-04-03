@@ -1,36 +1,52 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+/**
+ * Helper: Find a node by ID anywhere in the nested tree
+ */
+const findNodeInTree = (node, id) => {
+  if (!node) return null;
+  if (node.id === id) return node;
+  if (node.children) {
+    for (const child of node.children) {
+      const found = findNodeInTree(child, id);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
 const useProjectStore = create(
   persist(
     (set, get) => ({
       // --- STATE ---
-      projects: [],              // List of all Level 1 nodes (Projects)
-      activeProject: null,       // Currently selected L1 Node (Simplified object)
-      projectTree: null,         // The full recursive NodeTreeRead object (L1 -> L5)
+      projects: [],              // List of all Level 1 nodes (Sidebar)
+      activeProject: null,       // The currently active L1 Project
+      projectTree: null,         // The full recursive tree (L1 -> L5)
       
-      // Workspace UI State
+      // UI State
       viewMode: 'tree',          
       isInspectorOpen: false,    
-      selectedNode: null,        // Currently focused node (any level)
+      selectedNode: null,        // Focused node in the Inspector
       
       loading: false,
       error: null,
 
       // --- ACTIONS ---
 
-      // Project Management
-      setProjects: (projects) => set({ projects }),
+      // Set the sidebar list
+      setProjects: (projects) => set({ projects, error: null }),
       
+      // Select a project and prepare workspace
       setActiveProject: (project) => set({ 
         activeProject: project, 
-        projectTree: null,       // Clear tree to trigger a fresh fetch for the new project
+        projectTree: null,       // Clear old tree to force fresh load
         selectedNode: null,
         isInspectorOpen: false,
         error: null 
       }),
 
-      // Workspace UI Controls
+      // UI Controls
       setViewMode: (mode) => set({ viewMode: mode }),
       
       setSelectedNode: (node) => set({ 
@@ -40,33 +56,35 @@ const useProjectStore = create(
       
       setInspectorOpen: (isOpen) => set({ 
         isInspectorOpen: isOpen,
-        // Only clear selectedNode if closing the inspector
+        // Keep selectedNode if opening, clear if closing
         selectedNode: isOpen ? get().selectedNode : null 
       }),
 
       // Tree Synchronization
-      // Receives the recursive object: { id, name, children: [...], metadata: {} }
-      setProjectTree: (tree) => set({ 
-        projectTree: tree, 
-        loading: false,
-        // If the tree was refreshed, update the selectedNode reference if it exists
-        selectedNode: get().selectedNode ? findNodeInTree(tree, get().selectedNode.id) : null
-      }),
+      setProjectTree: (tree) => {
+        const currentSelected = get().selectedNode;
+        set({ 
+          projectTree: tree, 
+          loading: false,
+          // Re-sync the selected node reference so the Inspector has the latest data
+          selectedNode: currentSelected ? findNodeInTree(tree, currentSelected.id) : null
+        });
+      },
 
       // --- RECURSIVE ENGINE ---
       
-      // Optimistic Node Update: High-performance local state mutation
+      // Optimistic Update: Updates UI immediately while waiting for server
       updateNodeLocally: (nodeId, updates) => {
         const updateRecursive = (node) => {
           if (!node) return null;
           
           if (node.id === nodeId) {
-            // Merge metadata carefully to avoid overwriting the whole object
-            const updatedMetadata = updates.metadata 
-              ? { ...node.metadata, ...updates.metadata } 
-              : node.metadata;
+            // Handle node_metadata merging specifically
+            const updatedMetadata = updates.node_metadata 
+              ? { ...node.node_metadata, ...updates.node_metadata } 
+              : node.node_metadata;
               
-            return { ...node, ...updates, metadata: updatedMetadata };
+            return { ...node, ...updates, node_metadata: updatedMetadata };
           }
           
           if (node.children && node.children.length > 0) {
@@ -83,7 +101,7 @@ const useProjectStore = create(
           const newTree = updateRecursive(currentTree);
           set({ 
             projectTree: newTree,
-            // Sync the inspector data if the edited node is the one currently open
+            // Sync Inspector if the edited node is the one open
             selectedNode: get().selectedNode?.id === nodeId 
               ? findNodeInTree(newTree, nodeId) 
               : get().selectedNode
@@ -95,7 +113,6 @@ const useProjectStore = create(
       setLoading: (isLoading) => set({ loading: isLoading }),
       setError: (error) => set({ error, loading: false }),
 
-      // Reset on Logout
       resetProjectStore: () => set({
         projects: [],
         activeProject: null,
@@ -109,6 +126,7 @@ const useProjectStore = create(
     }),
     {
       name: 'kether-workspace-storage',
+      // Only persist essential UI state and current project selection
       partialize: (state) => ({ 
         activeProject: state.activeProject, 
         viewMode: state.viewMode 
@@ -116,19 +134,5 @@ const useProjectStore = create(
     }
   )
 );
-
-/**
- * Helper: Find a node by ID anywhere in the 5-layer tree
- */
-function findNodeInTree(node, id) {
-  if (node.id === id) return node;
-  if (node.children) {
-    for (const child of node.children) {
-      const found = findNodeInTree(child, id);
-      if (found) return found;
-    }
-  }
-  return null;
-}
 
 export default useProjectStore;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Folder, Search, MoreVertical, HardDrive, Cpu } from 'lucide-react';
+import { Plus, Search, MoreVertical, Layout, Loader2 } from 'lucide-react';
 import useProjectStore from '../../store/projectStore';
 import { useProjects } from '../../hooks/useProjects';
 import UnifiedNodeModal from '../ui/UnifiedNodeModal';
@@ -14,7 +14,7 @@ const ProjectMenu = () => {
   // Initial load of the project list
   useEffect(() => {
     fetchAllProjects();
-  }, []);
+  }, [fetchAllProjects]);
 
   const filteredProjects = projects.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -25,11 +25,11 @@ const ProjectMenu = () => {
       {/* --- HEADER & CREATE ACTION --- */}
       <div className="menu-header">
         <div className="header-top">
-          <span className="section-title">Orchestrations</span>
+          <span className="section-title">Projects</span>
           <button 
             className="btn-create-icon" 
             onClick={() => setIsCreateModalOpen(true)}
-            title="Initialize New Project"
+            title="Create New Project"
           >
             <Plus size={18} />
           </button>
@@ -39,7 +39,7 @@ const ProjectMenu = () => {
           <Search size={14} className="search-icon" />
           <input 
             type="text" 
-            placeholder="Search DNA..." 
+            placeholder="Filter projects..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -50,8 +50,8 @@ const ProjectMenu = () => {
       <div className="project-list-container">
         {loading && projects.length === 0 ? (
           <div className="menu-loading">
-            <Cpu className="animate-spin-slow" size={20} />
-            <span>Scanning Core...</span>
+            <Loader2 className="animate-spin" size={20} />
+            <span>Syncing database...</span>
           </div>
         ) : (
           <ul className="project-list">
@@ -62,13 +62,15 @@ const ProjectMenu = () => {
                 onClick={() => setActiveProject(project)}
               >
                 <div className="item-icon">
-                  <HardDrive size={16} />
+                  <Layout size={16} />
                 </div>
                 <div className="item-details">
                   <span className="item-name">{project.name}</span>
-                  <span className="item-meta">v{project.version || '1.0.0'}</span>
+                  <span className="item-meta">
+                    {project.node_metadata?.status || 'Active'}
+                  </span>
                 </div>
-                <button className="item-options">
+                <button className="item-options" onClick={(e) => e.stopPropagation()}>
                   <MoreVertical size={14} />
                 </button>
               </li>
@@ -78,7 +80,7 @@ const ProjectMenu = () => {
 
         {!loading && filteredProjects.length === 0 && (
           <div className="menu-empty">
-            <p>No matches found.</p>
+            <p>{searchTerm ? "No projects found." : "No projects created yet."}</p>
           </div>
         )}
       </div>
@@ -130,7 +132,7 @@ const ProjectMenu = () => {
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: background 0.2s;
+          transition: 0.2s;
         }
 
         .btn-create-icon:hover { background: #2ea043; }
@@ -173,14 +175,14 @@ const ProjectMenu = () => {
           align-items: center;
           padding: 10px 15px;
           cursor: pointer;
-          transition: background 0.2s;
+          transition: background 0.15s;
           border-left: 3px solid transparent;
         }
 
-        .project-item:hover { background: #1f242c; }
+        .project-item:hover { background: #1c2128; }
         
         .project-item.active {
-          background: rgba(88, 166, 255, 0.1);
+          background: rgba(56, 139, 253, 0.1);
           border-left-color: #58a6ff;
         }
 
@@ -212,7 +214,7 @@ const ProjectMenu = () => {
 
         .item-name {
           font-size: 0.9rem;
-          color: #c9d1d9;
+          color: #f0f6fc;
           font-weight: 500;
           white-space: nowrap;
           overflow: hidden;
@@ -221,7 +223,8 @@ const ProjectMenu = () => {
 
         .item-meta {
           font-size: 0.7rem;
-          color: #484f58;
+          color: #8b949e;
+          text-transform: capitalize;
         }
 
         .item-options {
@@ -231,9 +234,11 @@ const ProjectMenu = () => {
           cursor: pointer;
           padding: 5px;
           opacity: 0;
+          transition: 0.2s;
         }
 
         .project-item:hover .item-options { opacity: 1; }
+        .item-options:hover { color: #c9d1d9; }
 
         .menu-loading, .menu-empty {
           display: flex;
@@ -241,16 +246,19 @@ const ProjectMenu = () => {
           align-items: center;
           justify-content: center;
           padding: 40px 20px;
-          gap: 10px;
+          gap: 12px;
           font-size: 0.85rem;
-          color: #484f58;
+          color: #8b949e;
         }
 
-        @keyframes spin-slow {
+        .animate-spin {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
-        .animate-spin-slow { animation: spin-slow 3s linear infinite; }
       `}</style>
     </div>
   );
