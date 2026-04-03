@@ -264,27 +264,14 @@ Implementing the Python sandbox where the "Toolsmith" agent can write, test, and
 ### Phase 5: Self-Evolution. 
 Training Kether to use its own Project Management tab to track its own bugs and feature requests.
 
+### ToDo:
+Can you confirm project are linked to a user? And user have rights (modify, comment, just read) and can be share (by user tag or mail or send email to invite)
+---
+
+Anything to add or correct? Espicially with the first files and later improvments? List all the modification to be done before trying the new code.
 
 
-Let's write file one by one to create the Workspace tab to manage projects, here is the file to write: agents/prompts/decomposition.txt:
+So let's correct those few things, here is what to correct/check. And below the code to rewrite entierly.
 
-🏗️ Frontend: Workspace Development Roadmap
-src/store/projectStore.js: Modify Zustand store to manage the 5-layer tree state, activeProject, and viewMode.
-src/hooks/useProjects.js: Modify hook for CRUD operations and AI "Generation" triggers via Axios.
-src/pages/Workspace.jsx: Modify to implement the tri-pane layout (Menu, Canvas, Inspector) and view toggling.
-src/components/workspace/ProjectMenu.jsx: Create sidebar component to list projects and trigger the "Create Project" flow.
-src/components/workspace/FlowerView.jsx: Create radial graph component using react-force-graph for Level 1-5 discovery.
-src/components/workspace/TreeView.jsx: Create horizontal DAG component for hierarchical logic and dependency mapping.
-src/components/workspace/ProjectMap.jsx: Modify to act as the wrapper/container for switching between Flower and Tree views.
-src/components/ui/UnifiedNodeModal.jsx: Create the "Master" modal that adapts its form fields based on the selected node level.
-src/components/ui/ModalChat.jsx: Create the AI sidecar component for real-time node context clarification and auto-filling.
-src/components/workspace/SmartInspector.jsx: Create the right-side slide-out panel for rapid attribute editing without modals.
-⚙️ Backend & AI: Supporting Infrastructure
-backend/models/project.py: Modify recursive SQLModel with parent_id and json_metadata for 5-layer storage.
-backend/api/projects.py: Modify endpoints for recursive tree fetching (/tree) and AI decomposition triggers (/ai-generate).
-agents/prompts/decomposition.txt: Create system prompt for the "Architect" agent to break Functional Tasks into Technical Tasks.
-backend/main.py: Modify to register the new projects router and initialize workspace-related middleware.
-
-
-Here is the current file to rewrite to include the modification:
+---
 
