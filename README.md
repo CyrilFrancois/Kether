@@ -297,7 +297,7 @@ Anything to add or correct? Espicially with the first files and later improvment
 ---
 
 So let's correct those few things one file at a time. Generate the whole file. Taking into account the previous files modifications. And below the code to rewrite entierly if needed. And stop with the DNA things, we stay pro on a Porject Management App.
-Here the one file with focus on before going to the next: frontend/src/components/ui/UnifiedNodeModal.jsx
+Here the one file with focus on before going to the next: frontend/src/pages/Workspace.jsx
 
 Backend: Database & Core Logic
 backend/models/attribute.py | MODIFY | Define the EAV table for dynamic keys, values, and project relationships.

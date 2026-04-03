@@ -9,18 +9,15 @@ const UnifiedNodeModal = ({ level = 1, parentId = null, initialData = null, onCl
   const { addNode, updateNode } = useProjects();
   const { suggestions, fetchSuggestions } = useAttributes();
   
-  // Initialize state with safe defaults for the EAV pattern
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     description: initialData?.description || '',
     domain: initialData?.domain || 'General',
-    // Ensure attributes is always an array to avoid map errors
     attributes: initialData?.attributes || []
   });
   
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  // Configuration for Layer Visuals and Naming Conventions
   const levelConfigs = {
     1: { label: 'Project', icon: <Database size={18} />, color: '#58a6ff' },
     2: { label: 'Functionality', icon: <Layout size={18} />, color: '#bc8cff' },
@@ -31,21 +28,18 @@ const UnifiedNodeModal = ({ level = 1, parentId = null, initialData = null, onCl
 
   const config = levelConfigs[level];
 
-  // Fetch smart suggestions when the domain is selected (only for root projects)
   useEffect(() => {
     if (level === 1 && formData.domain) {
       fetchSuggestions(formData.domain);
     }
-  }, [formData.domain, level, fetchSuggestions]);
+  }, [formData.domain, level]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Structure the payload for the backend (EAV-compliant)
     const payload = { 
       ...formData, 
       level, 
-      parent_id: parentId // Matching SQLModel snake_case
+      parent_id: parentId 
     };
     
     try {
@@ -62,7 +56,7 @@ const UnifiedNodeModal = ({ level = 1, parentId = null, initialData = null, onCl
 
   const handleAddAttribute = (suggestion = null) => {
     const newAttr = suggestion 
-      ? { key: suggestion.name, value: '', type: suggestion.data_type }
+      ? { key: suggestion.name, value: '', type: suggestion.data_type || 'text' }
       : { key: '', value: '', type: 'text' };
     
     setFormData(prev => ({
@@ -85,6 +79,9 @@ const UnifiedNodeModal = ({ level = 1, parentId = null, initialData = null, onCl
       attributes: prev.attributes.filter((_, i) => i !== index)
     }));
   };
+
+  // Safe check for suggestions array to prevent crash
+  const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
 
   return (
     <div className="modal-backdrop">
@@ -143,14 +140,13 @@ const UnifiedNodeModal = ({ level = 1, parentId = null, initialData = null, onCl
               />
             </div>
 
-            {/* --- DYNAMIC ATTRIBUTES SECTION --- */}
             <div className="attributes-section">
               <div className="section-header">
                 <label>Key Parameters</label>
                 <div className="suggestion-chips">
-                  {suggestions.slice(0, 3).map(s => (
+                  {safeSuggestions.slice(0, 3).map((s, idx) => (
                     <button 
-                      key={s.name} 
+                      key={s.name || idx} 
                       type="button" 
                       onClick={() => handleAddAttribute(s)} 
                       className="chip"
@@ -179,7 +175,6 @@ const UnifiedNodeModal = ({ level = 1, parentId = null, initialData = null, onCl
                       type="button" 
                       onClick={() => handleRemoveAttribute(index)} 
                       className="delete-attr"
-                      title="Remove field"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -220,7 +215,8 @@ const UnifiedNodeModal = ({ level = 1, parentId = null, initialData = null, onCl
         )}
       </div>
 
-      <style jsx>{`
+      {/* Styled JSX Warning Fix: standard style tag */}
+      <style>{`
         .modal-backdrop { position: fixed; inset: 0; background: rgba(1, 4, 9, 0.85); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .modal-container { background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: 650px; max-height: 90vh; display: flex; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
         .modal-container.with-chat { width: 1050px; }

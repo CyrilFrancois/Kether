@@ -38,9 +38,7 @@ export const useAttributes = () => {
     setLoading(true);
     try {
       // Matches the backend router: @router.get("/suggestions")
-      const response = await api.get(`/api/attributes/suggestions`, {
-        params: { domain }
-      });
+      const response = await axios.get(`/attributes/suggestions?domain=${domain}`);
       setSuggestions(response.data);
     } catch (err) {
       console.error("Failed to fetch attribute suggestions:", err);

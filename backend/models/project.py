@@ -4,6 +4,7 @@ from sqlmodel import SQLModel, Field, Relationship
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 
+# Standard imports for rebuild
 if TYPE_CHECKING:
     from .user import User
     from .attribute import Attribute, AttributeRead
@@ -11,16 +12,15 @@ if TYPE_CHECKING:
 class ProjectBase(SQLModel):
     """
     Base properties for a Project.
-    Focuses on core project management metadata, avoiding domain-specific fields.
+    Focuses on core project management metadata.
     """
     name: str = Field(index=True)
     description: Optional[str] = Field(default=None)
-    domain: str = Field(default="General", index=True) # e.g., 'IT', 'Marketing'
-    status: str = Field(default="Draft")               # Draft, Active, Archived
+    domain: str = Field(default="General", index=True) 
+    status: str = Field(default="Draft")               
     thumbnail_path: Optional[str] = Field(default=None)
     is_favorite: bool = Field(default=False)
     
-    # Flexible metadata for UI/State (e.g. canvas coordinates, expanded states)
     node_metadata: Dict[str, Any] = Field(
         default_factory=dict, 
         sa_column=sa.Column(JSONB)
@@ -29,7 +29,7 @@ class ProjectBase(SQLModel):
 class Project(ProjectBase, table=True):
     """
     The Database Table model for Projects.
-    Acts as both a 'Project' and a 'Node' in the hierarchy.
+    Supports a recursive tree structure (Parent -> Children).
     """
     __tablename__: str = "projects"
 
@@ -76,19 +76,16 @@ class Project(ProjectBase, table=True):
         sa_column_kwargs={"onupdate": sa.func.now()}
     )
 
-# --- ALIAS FOR BACKWARD COMPATIBILITY ---
-# This resolves 'ImportError: cannot import name ProjectNode'
+# Alias for backward compatibility
 ProjectNode = Project
 
 # --- API SCHEMAS ---
 
 class ProjectCreate(ProjectBase):
-    """Schema for creating a new project or sub-node"""
     parent_id: Optional[int] = None
     level: int = 1
 
 class ProjectUpdate(SQLModel):
-    """Schema for updating project details"""
     name: Optional[str] = None
     description: Optional[str] = None
     domain: Optional[str] = None
@@ -98,15 +95,21 @@ class ProjectUpdate(SQLModel):
     node_metadata: Optional[Dict[str, Any]] = None
 
 class ProjectRead(ProjectBase):
-    """Standard read schema for project lists"""
     id: int
     user_id: int
     level: int
     created_at: datetime
     updated_at: datetime
-    # Nested attributes are pulled here for the Smart Inspector
+    # Use string reference for AttributeRead
     attributes: List["AttributeRead"] = []
 
 class ProjectTreeRead(ProjectRead):
-    """Recursive schema for fetching entire project hierarchies"""
+    # Recursive schema for fetching entire hierarchies
     children: List["ProjectTreeRead"] = []
+
+# --- 🚀 CRITICAL FIX: REBUILD MODELS ---
+# This resolves the "PydanticUserError: ProjectRead is not fully defined"
+from .attribute import AttributeRead # Import here to ensure it's available for rebuild
+
+ProjectRead.model_rebuild()
+ProjectTreeRead.model_rebuild()
