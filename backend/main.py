@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from core.database import init_db
 # Ensure models are imported to register with SQLModel metadata
 from models.user import User
-from models.project import Project, ProjectNode
+from models.project import Project
 from models.attribute import Attribute
 from models.attributeLibrary import AttributeLibrary
 from api import auth, projects, attributes
@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
     try:
         # Initialize database tables
         init_db()
-        print("✅ DATABASE: Schema synchronization complete (EAV + Project Tree).")
+        print("✅ DATABASE: Schema synchronization complete.")
     except Exception as e:
         print(f"❌ DATABASE: Initialization failed! Error: {e}")
     
@@ -50,7 +50,7 @@ app.add_middleware(
     allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"], # Allow all headers for flexible orchestration
+    allow_headers=["*"],
 )
 
 @app.middleware("http")
@@ -69,16 +69,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(status_code=422, content={"detail": errors})
 
 # --- 6. ROUTER REGISTRATION ---
-# Unified /api prefix to prevent 404s and organize the namespace
+# REVERTED: Removed "/api" prefix to match Frontend expectations
 
-# Auth: /api/auth
-app.include_router(auth.router, prefix="/api/auth", tags=["Identity"])
+# Auth: /auth/register, /auth/login
+app.include_router(auth.router, prefix="/auth", tags=["Identity"])
 
-# Projects: /api/projects
-app.include_router(projects.router, prefix="/api/projects", tags=["Projects"])
+# Projects: /projects
+app.include_router(projects.router, prefix="/projects", tags=["Projects"])
 
-# Attributes: /api/attributes
-app.include_router(attributes.router, prefix="/api/attributes", tags=["Attributes"])
+# Attributes: /attributes
+app.include_router(attributes.router, prefix="/attributes", tags=["Attributes"])
 
 # --- 7. SYSTEM ENDPOINTS ---
 
@@ -87,16 +87,14 @@ async def health_check():
     return {
         "status": "online",
         "version": "1.2.0",
-        "database": "connected",
-        "features": ["Dynamic EAV", "Hierarchical Nodes"]
+        "database": "connected"
     }
 
 @app.get("/")
 async def root():
     return {
         "message": "Project Management API Core",
-        "docs": "/docs",
-        "api_root": "/api"
+        "docs": "/docs"
     }
 
 if __name__ == "__main__":
