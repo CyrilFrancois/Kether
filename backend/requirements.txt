@@ -10,7 +10,7 @@ langchain==0.1.13
 pydantic-settings==2.2.1
 
 # --- Database & Persistence ---
-# SQLModel is the wrapper we use for the 4-layer Project DNA
+# SQLModel is the wrapper we use for the 4-layer Project
 sqlmodel==0.0.16
 sqlalchemy==2.0.28
 psycopg2-binary==2.9.9

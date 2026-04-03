@@ -10,7 +10,7 @@ const UnifiedNodeModal = ({ type, level = 1, parentId = null, initialData = null
 
   // Configuration for different layers
   const levelConfigs = {
-    1: { label: 'Project DNA', icon: <Database size={18} />, color: '#58a6ff', fields: ['tech_stack', 'target_audience'] },
+    1: { label: 'Project', icon: <Database size={18} />, color: '#58a6ff', fields: ['tech_stack', 'target_audience'] },
     2: { label: 'Functionality', icon: <Layout size={18} />, color: '#bc8cff', fields: ['user_story', 'priority'] },
     3: { label: 'Logic Flow', icon: <Activity size={18} />, color: '#3fb950', fields: ['input_data', 'output_data'] },
     4: { label: 'Technical Unit', icon: <Code size={18} />, color: '#d29922', fields: ['complexity', 'endpoint'] },

@@ -86,7 +86,7 @@ const Dashboard = () => {
       fetchProjects(); 
     } catch (err) {
       console.error("❌ DASHBOARD: Creation failed:", err);
-      alert(err.response?.data?.detail || "Failed to deploy project DNA.");
+      alert(err.response?.data?.detail || "Failed to deploy project.");
     }
   };
 
@@ -118,7 +118,7 @@ const Dashboard = () => {
 
           <div className="project-card add-card" onClick={() => setShowModal(true)}>
             <span>+</span>
-            <p>Deploy New Project DNA</p>
+            <p>Deploy New Project</p>
           </div>
         </div>
       )}

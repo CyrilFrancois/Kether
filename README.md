@@ -157,93 +157,100 @@ The **Workspace** is the primary interactive environment for managing the 5-laye
 
 tree /f /a | findstr /v /i "node_modules .git __pycache__ kether_db_data pg_ base global 1 2 3 4 5 6000 replorigin_checkpoint mappings snapshots members offsets archive_status 0000" > project_structure.txt
 
-## File Architecture
+---
 
-Kether/
-├── .env                        # Environment variables (DB_URL, OPENAI_API_KEY)
-├── docker-compose.yml          # Container config (Postgres, FastAPI, Vite)
-├── project_structure.txt       # Local export of this tree
-├── README.md                   # Project vision and setup instructions
-│
-├── agents/                     # THE BRAIN: AI logic and prompt engineering
-│   ├── executor.py             # Logic for the agent that writes actual code
-│   ├── toolsmith.py            # Logic for the agent that creates reusable tools
-│   ├── __init__.py             # Makes folder a Python package
-│   └── prompts/                # SYSTEM PROMPTS: The "Identity" of each agent
-│
-├── backend/                    # THE ENGINE: Python/FastAPI Server
-│   ├── Dockerfile              # Instructions to containerize the Python backend
-│   ├── main.py                 # FastAPI entry point; registers all API routes
-│   ├── requirements.txt        # Python dependencies (FastAPI, SQLModel, etc.)
-│   ├── agents/                 # Internal helper logic for AI agent calls
-│   │   └── __init__.py
-│   ├── api/                    # ROUTERS: Endpoint definitions
-│   │   ├── auth.py             # Login, Register, and Token Refresh endpoints
-│   │   ├── projects.py         # [Phase 2] Tree & Backlog CRUD endpoints
-│   │   └── __init__.py
-│   ├── core/                   # SHARED: Database & Security config
-│   │   ├── database.py         # SQLAlchemy engine and Session generator
-│   │   ├── security.py         # JWT Token logic and password hashing
-│   │   └── __init__.py
-│   ├── foundry/                # Logic for the AI code-generation laboratory
-│   │   └── __init__.py
-│   ├── models/                 # DATABASE SCHEMAS: SQLModel classes
-│   │   ├── project.py          # [Phase 2] The 4-Layer Recursive Schema
-│   │   ├── user.py             # User account and auth schemas
-│   │   └── __init__.py
-│   └── services/               # BUSINESS LOGIC: Complex calculations/ops
-│       └── __init__.py
-│
-├── foundry/                    # THE LAB: Physical storage for AI-generated code
-│   ├── library/                # Validated, reusable "Tools" created by agents
-│   ├── pending/                # Code generated but not yet human-verified
-│   └── sandbox/                # Temp folder for running/testing generated code
-│
-├── frontend/                   # THE INTERFACE: React + Vite + Tailwind
-│   ├── Dockerfile              # Instructions to containerize the React app
-│   ├── index.html              # Root HTML entry point
-│   ├── package.json            # NPM dependencies (Lucide, Zustand, Tailwind)
-│   ├── vite.config.js          # Vite build and proxy settings
-│   ├── public/                 # Static assets (logos, icons)
-│   └── src/
-│       ├── App.jsx             # Main Router and Protected Route logic
-│       ├── index.css           # Global CSS and Tailwind directives
-│       ├── main.jsx            # React root mount point
-│       ├── components/         # REUSABLE UI BLOCKS
-│       │   ├── auth/           # Login forms and session pulse indicators
-│       │   │   ├── LoginForm.jsx
-│       │   │   └── SystemPulse.jsx
-│       │   ├── ui/             # "Atoms": Buttons, Inputs, Cards
-│       │   │   ├── Button.jsx
-│       │   │   ├── Input.jsx
-│       │   │   ├── ProjectCard.jsx # The "North Star" DNA summary card
-│       │   │   └── StatusDot.jsx
-│       │   └── workspace/      # "Molecules": Complex Workspace views
-│       │       ├── BacklogView.jsx # Flattened "Ticket" list for execution
-│       │       └── ProjectMap.jsx  # Hierarchical "Tree" map of the project
-│       │       └── ProjectCard.jsx
-│       ├── hooks/              # LOGIC ABSTRACTION
-│       │   ├── useAuth.js      # Handles login/logout flows
-│       │   ├── useHealthCheck.js # Checks if Backend/DB are online
-│       │   └── useProjects.js  # [Phase 2] Syncs Tree/Backlog with API
-│       ├── pages/              # FULL PAGE VIEWS
-│       │   ├── Connection.jsx  # Login/Signup screen
-│       │   ├── Dashboard.jsx   # List of all your projects
-│       │   ├── Foundry.jsx     # AI code-gen interface
-│       │   ├── Settings.jsx    # User/System preferences
-│       │   └── Workspace.jsx   # [Phase 2] Main Map/Backlog controller
-│       └── store/              # GLOBAL STATE (Zustand)
-│           ├── authStore.js    # User tokens and session state
-│           └── projectStore.js # Active project tree and task data
-│
-└── kether_db_data/             # DATABASE STORAGE: Physical Postgres files
-    ├── postgresql.conf         # Main database configuration
-    ├── postmaster.pid          # File used to track the running DB process
-    └── base/                   # The actual binary data of your tables
+## Kether File Architecture
+
+.
+├── .env                        # Environment variables (DB Credentials, API Keys)
+├── docker-compose.yml          # Container orchestration (Backend, Frontend, Postgres)
+├── project_structure.txt       # Static reference of the file tree
+├── README.md                   # Project documentation and setup guide
+├── agents/                     # Autonomous AI Agent Logic
+│   ├── executor.py             # Executes sub-tasks based on project constraints
+│   ├── toolsmith.py            # Dynamically creates tools for specific project needs
+│   ├── __init__.py
+│   └── prompts/
+│       └── decomposition.txt   # Prompt logic: Reads dynamic DNA to break down projects
+├── backend/                    # FastAPI Server Application
+│   ├── Dockerfile              # Backend containerization
+│   ├── main.py                 # FastAPI entry point & middleware configuration
+│   ├── requirements.txt        # Python dependencies (SQLAlchemy, FastAPI, etc.)
+│   ├── agents/                 # Internal agent-to-backend communication logic
+│   ├── api/                    # API Endpoints
+│   │   ├── auth.py             # User authentication and JWT handling
+│   │   ├── projects.py         # CRUD for projects (Common DNA + Metadata)
+│   │   └── attributes.py       # [NEW] CRUD for dynamic DNA & Library suggestions
+│   ├── core/                   # Security and Config
+│   │   └── security.py         # Password hashing and token validation
+│   ├── foundry/                # Logic for the "Foundry" generation engine
+│   ├── models/                 # SQLAlchemy Database Schemas
+│   │   ├── project.py          # [MODIFY] Common DNA: name, domain, favorite, icon
+│   │   ├── attribute.py        # [CREATE] Dynamic DNA: key, value, type, project_id
+│   │   ├── attributeLibrary.py # [CREATE] Global DNA: track usage freq & domain suggestions
+│   │   └── user.py             # User account structure
+│   ├── services/               # Business Logic Layer
+│   │   └── storage_service.py  # [CREATE] Handles project-specific file pathing for assets
+│   └── workspace_output/       # Local temp storage for generated code/files
+├── foundry/                    # Physical storage for generated "Foundry" artifacts
+│   ├── library/                # Saved, validated project templates
+│   ├── pending/                # Items currently being generated by agents
+│   └── sandbox/                # Testing area for generated code execution
+├── frontend/                   # React + Vite Application
+│   ├── Dockerfile              # Frontend containerization
+│   ├── index.html              # Main HTML entry
+│   ├── package.json            # NPM dependencies (Zustand, Lucide, Tailwind)
+│   ├── vite.config.js          # Vite build configuration
+│   ├── public/                 # Static assets (Favicons, manifest)
+│   └── src/                    
+│       ├── App.jsx             # Main routing and global layout
+│       ├── index.css           # Global Tailwind and custom styles
+│       ├── main.jsx            # React DOM rendering
+│       ├── components/         
+│       │   ├── auth/           
+│       │   │   ├── LoginForm.jsx    # User login UI
+│       │   │   └── SystemPulse.jsx  # Visual indicator of API/Agent health
+│       │   ├── ui/             
+│       │   │   ├── Button.jsx       # Standardized UI buttons
+│       │   │   ├── Input.jsx        # Generic text inputs
+│       │   │   ├── ModalChat.jsx    # Mini-chat interface for AI interaction
+│       │   │   ├── ProjectCard.jsx  # Summary view of a project
+│       │   │   ├── StatusDot.jsx    # Visual state indicator (Active/Archived)
+│       │   │   ├── UnifiedNodeModal.jsx # [MODIFY] Form to add dynamic DNA fields
+│       │   │   └── AttributeField.jsx   # [CREATE] Polymorphic field (Text/List/Toggle)
+│       │   └── workspace/      
+│       │       ├── BacklogView.jsx      # Task-oriented project view
+│       │       ├── FlowerView.jsx       # Visual mapping of project dependencies
+│       │       ├── ProjectMap.jsx       # High-level architecture visualization
+│       │       ├── ProjectMenu.jsx      # [MODIFY] Sidebar list with domain icons
+│       │       ├── SmartInspector.jsx   # [MODIFY] Detail sidebar showing dynamic DNA
+│       │       └── TreeView.jsx         # Hierarchical view of project sub-nodes
+│       ├── hooks/              
+│       │   ├── useAuth.js               # Auth state logic
+│       │   ├── useHealthCheck.js        # Connectivity monitoring
+│       │   ├── useProjects.js           # CRUD operations for projects
+│       │   └── useAttributes.js         # [CREATE] Logic for fetching DNA suggestions
+│       ├── pages/              
+│       │   ├── Connection.jsx           # Landing/Login page
+│       │   ├── Dashboard.jsx            # Overiew of all domains/projects
+│       │   ├── Foundry.jsx              # AI Generation workspace
+│       │   ├── Settings.jsx             # User and App configuration
+│       │   └── Workspace.jsx            # Main interactive project environment
+│       └── store/              
+│           ├── authStore.js             # User state management
+│           └── projectStore.js          # [MODIFY] Adaptive DNA and UI state
+├── database_data/              # Persistent Postgres storage (Volume mapped)
+│   ├── postgresql.conf         # DB configuration
+│   └── pgstat.stat             # DB statistics
+└── workspace_output/           # Root-level output for exported projects
 
 ---
 
-Level 1: The Project (The Core DNA)This is the "Foundry" blueprint. It defines the global constraints that the AI Agent will respect when generating sub-tasks.AttributeDetailPurposeProject IdentityName, Internal Code (e.g., KTH-01), Slug, Version (v1.0.0).Basic identification and URL routing.System Prompt/IntentA high-level vision statement.The "Source of Truth" for the LLM.Technical StackLanguages (Python), Frameworks (FastAPI), DB (Postgres), Hosting (Docker/AWS).Constraints for the Technical Task generator.UI/UX ParadigmStyle (Glassmorphism), Library (Tailwind), Design System (Material).Dictates the "look" of generated frontend tasks.IO SchemaGlobal Input types (User Auth) & Global Output types (JSON API).Defines the project's boundaries.Priority & HealthLow/Med/High/Critical + Project Health Score (calculated).High-level management visibility.Progress Metrics% Completion (Aggregated), Estimated vs. Actual Velocity.Real-time tracking.Repository DNAGitHub/GitLab URL, Main Branch, CI/CD status.Linkage to actual code execution.Level 2: Functionality (The User Value)Equivalent to an Epic or Feature Set, but focused strictly on Capability.AttributeDetailPurposeUser Story"As a [User], I want to [Action] so that [Value]."Standardized functional intent.Functional SpecDetailed markdown of what the user experiences.Manual or AI-generated documentation.Priority ScoreMoSCoW Method (Must have, Should have, etc.).Scheduling and roadmap planning.Inherited DifficultyTotal complexity sum of all Technical Tasks.Automatically calculated "weight" of the feature.Completion %Ratio of completed Functional Tasks.Granular progress tracking.Dependency MapIDs of other Functionalities required first.Prevents architectural bottlenecks.Level 3: Functional Task (The Logic Flow)This is the Behavioral Layer. It defines the "Steps" or "States."AttributeDetailPurposeFlow Namee.g., "Success Auth Flow" or "Invalid Password Error."Identifies a specific logic path.State DiagramJSON representation of From-State → To-State.Used for the graphical Workspace map.Input/Output ContractInput Data (Email/Pass) → Output Data (JWT/Error 401).Strictly defines what the code must handle.Pre-conditionsWhat must be true before this task starts (e.g., User is on /login).Validation logic.Post-conditionsWhat must be true after (e.g., Token is stored in LocalStorage).Testing verification.Level 4: Technical Task (The Implementation)This is where the Developer/Agent works. It translates "Logic" into "Code."AttributeDetailPurposeModule/Pathe.g., backend/api/auth.py or frontend/components/Login.jsx.Where the work happens in the codebase.Complexity (Fibonacci)1, 2, 3, 5, 8, 13 (Story Points).Planning Poker / Velocity calculation.Technical Debt RiskHigh/Med/Low.Flags tasks that might need refactoring later.Agent TypeBackend Agent, Frontend Agent, DevOps Agent.Assigns the task to a specific LLM profile.Code Snippet / Snippet PlaceholderAI-generated boiler-plate code.Direct integration with the "Foundry" tab.Review StatusPending, Approved, Changes Requested.Quality control gate.Level 5: ToDo (The Atomic Execution)The smallest unit of work. Cannot be broken down further.AttributeDetailPurposeTask Descriptione.g., "Add click event listener to Submit button."Micro-instructions.StatusBacklog, In Progress, Review, Done, Blocked.The "Jira-style" status.AssigneeHuman User or AI Agent Name.Accountability.Time TrackEstimated time vs. Time spent.Calculating real-world velocity.ChecklistSub-steps (e.g., Import Axios, Define URL, Handle Catch).Ensuring nothing is missed.
+Level 1: The Project (The Core DNA)This is the "Foundry" blueprint. It defines the global constraints that the AI Agent will respect when generating sub-tasks.AttributeDetailPurposeProject IdentityName, Internal Code (e.g., KTH-01), Slug, Version (v1.0.0).Basic identification and URL routing.System Prompt/IntentA high-level vision statement.The "Source of Truth" for the LLM.Technical StackLanguages (Python), Frameworks (FastAPI), DB (Postgres), Hosting (Docker/AWS).Constraints for the Technical Task generator.UI/UX ParadigmStyle (Glassmorphism), Library (Tailwind), Design System (Material).Dictates the "look" of generated frontend tasks.IO SchemaGlobal Input types (User Auth) & Global Output types (JSON API).Defines the project's boundaries.Priority & HealthLow/Med/High/Critical + Project Health Score (calculated).High-level management visibility.Progress Metrics% Completion (Aggregated), Estimated vs. Actual Velocity.Real-time tracking.Repository DNAGitHub/GitLab URL, Main Branch, CI/CD status.Linkage to actual code execution.
+Level 2: Functionality (The User Value)Equivalent to an Epic or Feature Set, but focused strictly on Capability.AttributeDetailPurposeUser Story"As a [User], I want to [Action] so that [Value]."Standardized functional intent.Functional SpecDetailed markdown of what the user experiences.Manual or AI-generated documentation.Priority ScoreMoSCoW Method (Must have, Should have, etc.).Scheduling and roadmap planning.Inherited DifficultyTotal complexity sum of all Technical Tasks.Automatically calculated "weight" of the feature.Completion %Ratio of completed Functional Tasks.Granular progress tracking.Dependency MapIDs of other Functionalities required first.Prevents architectural bottlenecks.
+Level 3: Functional Task (The Logic Flow)This is the Behavioral Layer. It defines the "Steps" or "States."AttributeDetailPurposeFlow Namee.g., "Success Auth Flow" or "Invalid Password Error."Identifies a specific logic path.State DiagramJSON representation of From-State → To-State.Used for the graphical Workspace map.Input/Output ContractInput Data (Email/Pass) → Output Data (JWT/Error 401).Strictly defines what the code must handle.Pre-conditionsWhat must be true before this task starts (e.g., User is on /login).Validation logic.Post-conditionsWhat must be true after (e.g., Token is stored in LocalStorage).Testing verification.
+Level 4: Technical Task (The Implementation)This is where the Developer/Agent works. It translates "Logic" into "Code."AttributeDetailPurposeModule/Pathe.g., backend/api/auth.py or frontend/components/Login.jsx.Where the work happens in the codebase.Complexity (Fibonacci)1, 2, 3, 5, 8, 13 (Story Points).Planning Poker / Velocity calculation.Technical Debt RiskHigh/Med/Low.Flags tasks that might need refactoring later.Agent TypeBackend Agent, Frontend Agent, DevOps Agent.Assigns the task to a specific LLM profile.Code Snippet / Snippet PlaceholderAI-generated boiler-plate code.Direct integration with the "Foundry" tab.Review StatusPending, Approved, Changes Requested.Quality control gate.
+Level 5: ToDo (The Atomic Execution)The smallest unit of work. Cannot be broken down further.AttributeDetailPurposeTask Descriptione.g., "Add click event listener to Submit button."Micro-instructions.StatusBacklog, In Progress, Review, Done, Blocked.The "Jira-style" status.AssigneeHuman User or AI Agent Name.Accountability.Time TrackEstimated time vs. Time spent.Calculating real-world velocity.ChecklistSub-steps (e.g., Import Axios, Define URL, Handle Catch).Ensuring nothing is missed.
 
 ---
 
@@ -268,10 +275,43 @@ Training Kether to use its own Project Management tab to track its own bugs and 
 Can you confirm project are linked to a user? And user have rights (modify, comment, just read) and can be share (by user tag or mail or send email to invite)
 ---
 
-Anything to add or correct? Espicially with the first files and later improvments? List all the modification to be done before trying the new code.
+Alright, it seems perfect! So let's focus on what we gonna have to do. I'm gonna give you the fill structure of Kether, and you gonna list all file we have to CREATE or MODIFY, whats we gonna in it. For each operation, i want one line with the file name, MODIFY or CREATE, and the objective.
 
+Here is the current file structure
 
-So let's correct those few things, here is what to correct/check. And below the code to rewrite entierly.
+--- 
+
+So let's correct those few things one file at a time. Generate the whole file. And below the code to rewrite entierly if needed.
+Here the one file with focus on before going to the next:
+Here is the code of the existing file to correct/modify:
 
 ---
 
+Anything to add or correct? Espicially with the first files and later improvments? List all the modification to be done before trying the new code.
+
+---
+
+So let's correct those few things one file at a time. Generate the whole file. And below the code to rewrite entierly if needed.
+Here the one file with focus on before going to the next:
+
+1. Database & Backend (The Foundation)
+backend/models/project.py: MODIFY – Remove IT-specific columns (tech_stack, etc.) and add domain, is_favorite, and description.
+backend/models/attribute.py: CREATE – New model to store the "DNA" (key-value pairs) linked to projects.
+backend/models/attributeLibrary.py: CREATE – New model to track global attribute popularity and types for the "Suggestions" UI.
+backend/routes/projects.py: MODIFY – Update GET/POST logic to handle the new project structure and include associated attributes in the response.
+backend/routes/attributes.py: CREATE – Routes to fetch suggested attributes based on a selected domain.
+2. File System & Storage
+backend/utils/storage_manager.py: CREATE – Utility to handle project-specific directory creation (/projects/{uuid}/assets) for icons and images.
+backend/routes/upload.py: MODIFY – Update upload logic to save files into the new project-structured pathing system.
+3. Frontend Store & State (Zustand)
+src/store/projectStore.js: MODIFY – Update the activeProject state structure and add a globalAttributes array for the library.
+src/hooks/useAttributes.js: CREATE – Hook to fetch suggested attributes when a user selects a "Domain" in the modal.
+4. UI Components (The Experience)
+src/components/ui/UnifiedNodeModal.jsx: MODIFY – Rewrite the form to be dynamic: instead of fixed inputs, render a list of attributes with an "Add Custom Field" button.
+src/components/ui/AttributeField.jsx: CREATE – New component to handle different input types (Text, List, Toggle, File) based on the attribute definition.
+src/components/workspace/ProjectMenu.jsx: MODIFY – Update rendering to use the new Icon and Description fields from the common DNA.
+src/components/inspector/ProjectInspector.jsx: MODIFY – Update the sidebar to display the dynamic attributes (e.g., showing "Locally Sourced" for a deck or "Tech Stack" for an app).
+5. AI & Prompting (The Logic)
+server/services/prompt_builder.py: MODIFY – Update the "System Prompt" generator to inject the dynamic JSON attributes into the LLM context.
+
+Here is the code of the existing file to correct/modify:
