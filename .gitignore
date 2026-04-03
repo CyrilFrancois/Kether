@@ -1,0 +1,5 @@
+# Environment variables
+.env
+
+# Database data folder
+kether_db_data/
